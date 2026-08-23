@@ -1,0 +1,5 @@
+name: cloudflare-memory
+version: 0.1.0
+description: "Cloudflare Agent Memory — cross-session memory via CF's managed recall, ingest, and summary API."
+hooks:
+  - on_session_end
