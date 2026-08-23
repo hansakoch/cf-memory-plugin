@@ -12,25 +12,28 @@ import sys
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="cloudflare-memory",
-        description="Cloudflare Agent Memory — client, MCP server, Hermes provider",
+        description="Cloudflare Agent Memory — client, MCP server, A2A agent, Hermes provider",
     )
     sub = parser.add_subparsers(dest="command")
 
     # ── serve (MCP server) ────────────────────────────────────────────
-    p_serve = sub.add_parser("serve", help="Start MCP server (stdio)")
+    p_serve = sub.add_parser("serve", help="Start MCP server (stdio/SSE)")
     p_serve.add_argument("--namespace", default="hermes", help="Namespace name")
     p_serve.add_argument("--profile", default="default", help="Profile name")
-    p_serve.add_argument(
-        "--transport",
-        default="stdio",
-        choices=["stdio", "sse"],
-        help="MCP transport",
-    )
+    p_serve.add_argument("--transport", default="stdio", choices=["stdio", "sse"])
+
+    # ── a2a (A2A agent server) ────────────────────────────────────────
+    p_a2a = sub.add_parser("a2a", help="Start A2A agent server")
+    p_a2a.add_argument("--port", type=int, default=9120, help="Listen port")
+    p_a2a.add_argument("--host", default="0.0.0.0", help="Bind address")
 
     # ── test (quick connectivity check) ───────────────────────────────
     p_test = sub.add_parser("test", help="Test API connectivity")
     p_test.add_argument("--namespace", default="hermes")
     p_test.add_argument("--profile", default="default")
+
+    # ── card (print agent card) ───────────────────────────────────────
+    sub.add_parser("card", help="Print A2A agent card JSON")
 
     args = parser.parse_args()
 
@@ -38,8 +41,16 @@ def main() -> None:
         from cloudflare_memory.server import serve
         serve(namespace=args.namespace, profile=args.profile, transport=args.transport)
 
+    elif args.command == "a2a":
+        from cloudflare_memory.a2a_server import serve_a2a
+        serve_a2a(port=args.port, host=args.host)
+
     elif args.command == "test":
         asyncio.run(_test(args.namespace, args.profile))
+
+    elif args.command == "card":
+        from cloudflare_memory.a2a_card import AGENT_CARD
+        print(json.dumps(AGENT_CARD, indent=2))
 
     else:
         parser.print_help()

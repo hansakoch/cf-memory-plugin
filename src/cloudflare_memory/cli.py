@@ -168,6 +168,8 @@ def register_cli(subparser) -> None:
     p_delete = subs.add_parser("delete-ns", help="Delete a namespace")
     p_delete.add_argument("name", help="Namespace name")
 
+    subs.add_parser("card", help="Print A2A agent card JSON")
+
     def _dispatch(args):
         cmd = getattr(args, "cf_memory_cmd", None)
         if cmd == "status":
@@ -180,6 +182,9 @@ def register_cli(subparser) -> None:
             cmd_create_ns(args)
         elif cmd == "delete-ns":
             cmd_delete_ns(args)
+        elif cmd == "card":
+            from cloudflare_memory.a2a_card import AGENT_CARD
+            print(json.dumps(AGENT_CARD, indent=2))
         else:
             subparser.print_help()
 
