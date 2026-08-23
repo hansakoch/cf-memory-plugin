@@ -16,12 +16,14 @@ def _get_client():
     """Lazy-create a client from env + config."""
     from cloudflare_memory.client import CloudflareMemoryClient
 
-    token = os.environ.get("MCP_CLOUDFLARE_API_KEY", "")
-    if not token:
-        print("ERROR: MCP_CLOUDFLARE_API_KEY not set in ~/.hermes/.env", file=sys.stderr)
-        sys.exit(1)
+    from cloudflare_memory.credentials import CredentialsError, require_account_id, require_token
 
-    account = os.environ.get("CF_ACCOUNT_ID", "0870b0bdbc14bcd31f43fe5e82c3ee8e")
+    try:
+        token = require_token()
+        account = require_account_id()
+    except CredentialsError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # Try reading config
     from hermes_constants import get_hermes_home

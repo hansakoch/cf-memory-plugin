@@ -103,7 +103,10 @@ class CloudflareMemoryClient:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
                 base_url=f"{_BASE}/{self.account_id}/agent-memory",
-                headers={"Authorization": f"Bearer {self.api_token}"},
+                headers={
+                    "Authorization": f"Bearer {self.api_token}",
+                    "User-Agent": "cf-memory-plugin/0.1.0",
+                },
                 timeout=httpx.Timeout(self.timeout),
             )
         return self._client

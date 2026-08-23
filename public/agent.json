@@ -1,0 +1,19 @@
+{
+  "name": "cf-memory-plugin",
+  "description": "CF Memory Plugin — persistent cross-session memory for AI agents via Cloudflare Agent Memory.",
+  "url": "https://cloudflare-memory.pages.dev",
+  "version": "0.1.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "skills": [
+    {"id": "remember", "name": "Remember", "description": "Store one memory.", "tags": ["memory"]},
+    {"id": "recall", "name": "Recall", "description": "Semantic search with a synthesized answer.", "tags": ["memory"]},
+    {"id": "ingest", "name": "Ingest", "description": "Extract memories from a conversation.", "tags": ["memory"]},
+    {"id": "list", "name": "List", "description": "List memories.", "tags": ["memory"]},
+    {"id": "get", "name": "Get", "description": "Get one memory by id.", "tags": ["memory"]},
+    {"id": "summary", "name": "Summary", "description": "Markdown profile summary.", "tags": ["memory"]}
+  ]
+}

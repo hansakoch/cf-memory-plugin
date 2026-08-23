@@ -144,9 +144,11 @@ class CloudflareMemoryProvider(MemoryProvider):
         # Start the persistent async runner
         self._runner.start()
 
+        from cloudflare_memory.credentials import require_account_id, require_token
+
         self._client = CloudflareMemoryClient(
-            account_id=os.environ.get("CF_ACCOUNT_ID", "0870b0bdbc14bcd31f43fe5e82c3ee8e"),
-            api_token=os.environ["MCP_CLOUDFLARE_API_KEY"],
+            account_id=require_account_id(),
+            api_token=require_token(),
             namespace=self._namespace,
             profile=self._profile,
         )
@@ -435,10 +437,10 @@ class CloudflareMemoryProvider(MemoryProvider):
             },
             {
                 "key": "account_id",
-                "description": "Cloudflare Account ID",
+                "description": "Cloudflare Account ID (from the dashboard sidebar)",
                 "required": True,
-                "default": "0870b0bdbc14bcd31f43fe5e82c3ee8e",
                 "env_var": "CF_ACCOUNT_ID",
+                "url": "https://dash.cloudflare.com/",
             },
             {
                 "key": "namespace",

@@ -23,17 +23,18 @@ server = MCPServer(name="cloudflare-memory", instructions="Cloudflare Agent Memo
 def _get_client() -> CloudflareMemoryClient:
     global _client
     if _client is None:
-        token = os.environ.get("MCP_CLOUDFLARE_API_KEY", "")
-        if not token:
-            raise RuntimeError("MCP_CLOUDFLARE_API_KEY not set")
-        account = os.environ.get("CF_ACCOUNT_ID", "0870b0bdbc14bcd31f43fe5e82c3ee8e")
-        ns = os.environ.get("CF_MEMORY_NAMESPACE", "hermes")
-        profile = os.environ.get("CF_MEMORY_PROFILE", "default")
+        from cloudflare_memory.credentials import (
+            namespace,
+            profile,
+            require_account_id,
+            require_token,
+        )
+
         _client = CloudflareMemoryClient(
-            account_id=account,
-            api_token=token,
-            namespace=ns,
-            profile=profile,
+            account_id=require_account_id(),
+            api_token=require_token(),
+            namespace=namespace(),
+            profile=profile(),
         )
     return _client
 

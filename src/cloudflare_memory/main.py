@@ -25,7 +25,7 @@ def main() -> None:
     # ── a2a (A2A agent server) ────────────────────────────────────────
     p_a2a = sub.add_parser("a2a", help="Start A2A agent server")
     p_a2a.add_argument("--port", type=int, default=9120, help="Listen port")
-    p_a2a.add_argument("--host", default="0.0.0.0", help="Bind address")
+    p_a2a.add_argument("--host", default="127.0.0.1", help="Bind address (default localhost)")
 
     # ── test (quick connectivity check) ───────────────────────────────
     p_test = sub.add_parser("test", help="Test API connectivity")
@@ -60,12 +60,14 @@ def main() -> None:
 async def _test(namespace: str, profile: str) -> None:
     from cloudflare_memory.client import CloudflareMemoryClient, MemoryAPIError
 
-    token = os.environ.get("MCP_CLOUDFLARE_API_KEY", "")
-    if not token:
-        print("ERROR: MCP_CLOUDFLARE_API_KEY not set", file=sys.stderr)
-        sys.exit(1)
+    from cloudflare_memory.credentials import CredentialsError, require_account_id, require_token
 
-    account = os.environ.get("CF_ACCOUNT_ID", "0870b0bdbc14bcd31f43fe5e82c3ee8e")
+    try:
+        token = require_token()
+        account = require_account_id()
+    except CredentialsError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
     async with CloudflareMemoryClient(
         account_id=account,
         api_token=token,

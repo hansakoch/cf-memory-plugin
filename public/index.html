@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CF Memory Plugin</title>
+<meta name="description" content="Thin Cloudflare Agent Memory client for AI agents. MCP, Hermes, Python.">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #1a1a1a; }
+  h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+  .sub { color: #555; margin-bottom: 1.5rem; }
+  a { color: #f6821f; }
+  code, pre { background: #f4f4f4; border-radius: 4px; }
+  code { padding: 0.1em 0.35em; }
+  pre { padding: 0.9rem; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: 0.45rem 0.6rem; text-align: left; }
+  th { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<h1>CF Memory Plugin</h1>
+<p class="sub">Persistent agent memory via <a href="https://developers.cloudflare.com/agent-memory/">Cloudflare Agent Memory</a>. You call HTTP. Cloudflare stores and recalls.</p>
+<p>
+  <a href="https://github.com/hansakoch/cf-memory-plugin">GitHub</a> ·
+  <a href="/agent.json">Agent card</a> ·
+  <a href="https://forms.gle/RAXbK6gN9Yy89ECw8">Beta waitlist</a> ·
+  <a href="https://developers.cloudflare.com/agent-memory/platform/pricing/">Pricing</a>
+</p>
+<h2>Install</h2>
+<pre>pip install git+https://github.com/hansakoch/cf-memory-plugin.git
+export MCP_CLOUDFLARE_API_KEY="scoped-token"
+export CF_ACCOUNT_ID="your-account-id"
+cf-memory test</pre>
+<p>No default account. Token needs Agent Memory permission. Paid Workers required to apply; paid ≠ access.</p>
+<h2>Cost</h2>
+<table>
+<tr><th>Item</th><th>Now</th></tr>
+<tr><td>Agent Memory</td><td>$0 in private beta (30-day notice before billing)</td></tr>
+<tr><td>Workers Paid</td><td>$5/mo minimum to apply</td></tr>
+<tr><td>This plugin</td><td>MIT, free</td></tr>
+</table>
+<p><a href="https://github.com/hansakoch/cf-memory-plugin#readme">Full README →</a></p>
+</body>
+</html>

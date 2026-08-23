@@ -14,7 +14,7 @@ from cloudflare_memory.client import (
     RecallResult,
 )
 
-ACCOUNT = "0870b0bdbc14bcd31f43fe5e82c3ee8e"
+ACCOUNT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 TOKEN = "test-token"
 BASE = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/agent-memory"
 NS = f"{BASE}/namespaces/test-ns"
