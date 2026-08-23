@@ -1,134 +1,53 @@
-# cloudflare-memory
+# CF Memory Plugin
 
-Cloudflare Agent Memory client, MCP server, and Hermes memory provider plugin.
+**Cloudflare Agent Memory for every AI coding agent and LLM framework.**
 
-Standalone MIT Python package — no Cloudflare Worker needed. Calls the [Agent Memory HTTP API](https://developers.cloudflare.com/agent-memory/api/http-api/) directly from any Python environment.
+Gives your agent persistent, cross-session memory powered by [Cloudflare Agent Memory](https://developers.cloudflare.com/agent-memory/) — a managed service that handles recall, fact extraction, and profile summaries. No vector DB to run, no embeddings to manage, no Worker to deploy.
 
-## Features
+## Who this is for
 
-- **HTTP client** — async client for all CF Agent Memory endpoints (remember, recall, list, get, delete, ingest, summary, namespace management)
-- **MCP server** — `cloudflare-memory serve` exposes 10 tools via Model Context Protocol
-- **Hermes provider** — plug-in memory provider for [Hermes Agent](https://hermes-agent.nousresearch.com) with background prefetch, non-blocking sync, and TTL cache
-- **CLI** — `cloudflare-memory test` for connectivity checks, `hermes cloudflare-memory` for management
+- **AI coding agents** (Claude Code, Codex, Cursor, Hermes, OpenClaw, TRAE, OpenCode, pi) that need to remember context across sessions
+- **LLM frameworks** (LangChain, LangGraph) building agents with persistent memory
+- **MCP clients** (any tool supporting Model Context Protocol)
+- **Agent-to-agent systems** using the A2A protocol
+- **Anyone** who wants a simple, hosted memory backend for their AI agent
 
-## Install
+## What it does
+
+| Capability | Description |
+|------------|-------------|
+| **Remember** | Store facts, instructions, events — CF classifies them automatically |
+| **Recall** | Semantic search with synthesized answers (not just raw matches) |
+| **Ingest** | Feed conversation turns — CF extracts facts/events/instructions/tasks |
+| **Summary** | Markdown profile of everything stored, auto-generated |
+| **Namespaces** | Isolate memory per app, user, or environment |
+
+## Quick start (any agent)
 
 ```bash
 pip install git+https://github.com/hansakoch/cloudflare-memory.git
-```
 
-Or editable:
-
-```bash
-git clone https://github.com/hansakoch/cloudflare-memory.git
-cd cloudflare-memory
-pip install -e .
-```
-
-## Quick start
-
-```bash
 # Set credentials
 export MCP_CLOUDFLARE_API_KEY="your-cf-api-token"
 export CF_ACCOUNT_ID="your-account-id"
 
-# Test connectivity
-cloudflare-memory test
-
-# Start MCP server
-cloudflare-memory serve --namespace hermes --profile default
+# Test it works
+cf-memory test
 ```
 
-## Hermes Agent integration
+---
 
-The package auto-registers as a Hermes memory provider via pip entry point.
+## Agent integrations
 
-```bash
-# Activate
-hermes config set memory.provider cloudflare-memory
+### MCP clients (universal)
 
-# Verify
-hermes memory status
-
-# Management commands
-hermes cloudflare-memory status
-hermes cloudflare-memory test
-hermes cloudflare-memory namespaces
-hermes cloudflare-memory create-ns my-namespace
-hermes cloudflare-memory delete-ns my-namespace
-```
-
-### Configuration
-
-Via `hermes memory setup` (interactive), or manually:
-
-**~/.hermes/.env** (secrets):
-```bash
-MCP_CLOUDFLARE_API_KEY=your-cf-api-token
-CF_ACCOUNT_ID=your-account-id
-```
-
-**~/.hermes/cloudflare-memory.json** (optional):
-```json
-{
-  "namespace": "hermes",
-  "profile": "default"
-}
-```
-
-### Performance design
-
-The provider is designed to never add latency to Hermes turns:
-
-| Operation | Latency | How provider handles it |
-|-----------|---------|------------------------|
-| `prefetch()` | **0ms** | Returns cached result; fires background recall on cache miss |
-| `queue_prefetch()` | **0ms** | Warms cache for next turn (daemon thread) |
-| `sync_turn()` | **0ms** | Daemon thread → `ingest()` (writes appear 3–8s later) |
-| `cf_remember` tool | 1.3–3.8s | User-initiated, blocking OK |
-| `cf_recall` tool | ~5s | User-initiated, blocking OK |
-| `cf_list` tool | ~0.4s | User-initiated |
-| `cf_summary` tool | ~0.8s | User-initiated |
-
-### Tools exposed to the agent
-
-| Tool | Description |
-|------|-------------|
-| `cf_remember` | Store a single memory (returns type + summary) |
-| `cf_recall` | Semantic search (returns synthesized answer + candidates) |
-| `cf_list` | List memories (omits content) |
-| `cf_get` | Get one memory by ID (includes content) |
-| `cf_summary` | Markdown profile summary |
-| `cf_delete` | Delete a memory by ID |
-
-### Hooks
-
-| Hook | Behavior |
-|------|----------|
-| `on_session_end` | Ingests full session for fact extraction |
-| `system_prompt_block` | Injects provider status into system prompt |
-
-## MCP Server
-
-Exposes 10 tools via stdio or SSE transport:
-
-```bash
-# stdio (default)
-cloudflare-memory serve
-
-# SSE
-cloudflare-memory serve --transport sse
-```
-
-Tools: `remember`, `recall`, `list_memories`, `get_memory`, `delete_memory`, `ingest`, `summary`, `list_namespaces`, `create_namespace`, `delete_namespace`
-
-### MCP config for other clients
+Works with any MCP-compatible client: Claude Desktop, Cursor, Windsurf, Continue, Zed, and more.
 
 ```json
 {
   "mcpServers": {
-    "cloudflare-memory": {
-      "command": "cloudflare-memory",
+    "cf-memory": {
+      "command": "cf-memory",
       "args": ["serve"],
       "env": {
         "MCP_CLOUDFLARE_API_KEY": "your-token",
@@ -139,7 +58,217 @@ Tools: `remember`, `recall`, `list_memories`, `get_memory`, `delete_memory`, `in
 }
 ```
 
-## HTTP Client API
+**Tools exposed:** `remember`, `recall`, `list_memories`, `get_memory`, `delete_memory`, `ingest`, `summary`, `list_namespaces`, `create_namespace`, `delete_namespace`
+
+### Hermes
+
+Auto-discovered via pip entry point. No files to copy.
+
+```bash
+# Install
+pip install git+https://github.com/hansakoch/cloudflare-memory.git
+
+# Activate
+hermes config set memory.provider cloudflare-memory
+
+# Verify
+hermes memory status
+
+# Management
+hermes cloudflare-memory status
+hermes cloudflare-memory test
+hermes cloudflare-memory namespaces
+hermes cloudflare-memory card
+```
+
+**What Hermes gets:**
+- `prefetch()` — 0ms (cached + background recall)
+- `sync_turn()` — 0ms (daemon thread ingest)
+- 6 agent tools: `cf_remember`, `cf_recall`, `cf_list`, `cf_get`, `cf_summary`, `cf_delete`
+- `on_session_end` — auto-ingests full session for fact extraction
+- System prompt injection with provider status
+
+### Claude Code
+
+Add to `.claude/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "cf-memory": {
+      "command": "cf-memory",
+      "args": ["serve"],
+      "env": {
+        "MCP_CLOUDFLARE_API_KEY": "your-token",
+        "CF_ACCOUNT_ID": "your-account-id"
+      }
+    }
+  }
+}
+```
+
+Or add globally: `claude mcp add cf-memory -- cf-memory serve`
+
+### Codex (OpenAI)
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.cf-memory]
+command = "cf-memory"
+args = ["serve"]
+env = { MCP_CLOUDFLARE_API_KEY = "your-token", CF_ACCOUNT_ID = "your-account-id" }
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "cf-memory": {
+      "command": "cf-memory",
+      "args": ["serve"],
+      "env": {
+        "MCP_CLOUDFLARE_API_KEY": "your-token",
+        "CF_ACCOUNT_ID": "your-account-id"
+      }
+    }
+  }
+}
+```
+
+### OpenClaw
+
+Add to your OpenClaw config:
+
+```json
+{
+  "mcpServers": {
+    "cf-memory": {
+      "command": "cf-memory",
+      "args": ["serve"],
+      "env": {
+        "MCP_CLOUDFLARE_API_KEY": "your-token",
+        "CF_ACCOUNT_ID": "your-account-id"
+      }
+    }
+  }
+}
+```
+
+### TRAE / TRAE CN / TraeCode CLI 2.0
+
+Add MCP server in TRAE settings or `.trae/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "cf-memory": {
+      "command": "cf-memory",
+      "args": ["serve"],
+      "env": {
+        "MCP_CLOUDFLARE_API_KEY": "your-token",
+        "CF_ACCOUNT_ID": "your-account-id"
+      }
+    }
+  }
+}
+```
+
+### OpenCode
+
+Add to `~/.opencode/config.json`:
+
+```json
+{
+  "mcp": {
+    "cf-memory": {
+      "command": "cf-memory",
+      "args": ["serve"],
+      "env": {
+        "MCP_CLOUDFLARE_API_KEY": "your-token",
+        "CF_ACCOUNT_ID": "your-account-id"
+      }
+    }
+  }
+}
+```
+
+### pi
+
+Add MCP server to pi config:
+
+```json
+{
+  "mcpServers": {
+    "cf-memory": {
+      "command": "cf-memory",
+      "args": ["serve"],
+      "env": {
+        "MCP_CLOUDFLARE_API_KEY": "your-token",
+        "CF_ACCOUNT_ID = "your-account-id"
+      }
+    }
+  }
+}
+```
+
+### Agent Plugins 1.0
+
+Install as a plugin:
+
+```bash
+pip install git+https://github.com/hansakoch/cloudflare-memory.git
+```
+
+The package registers via `hermes_agent.memory_providers` entry point. Any Agent Plugins 1.0 compatible host discovers it automatically.
+
+### LangChain / LangGraph
+
+```python
+import asyncio
+from cloudflare_memory import CloudflareMemoryClient
+
+# Use as a memory backend in your LangChain/LangGraph agent
+client = CloudflareMemoryClient(
+    account_id="your-account-id",
+    api_token="your-token",
+    namespace="my-agent",
+    profile="user-123",
+)
+
+# Store a fact
+entry = asyncio.run(client.remember("User prefers Python over JavaScript."))
+
+# Recall
+result = asyncio.run(client.recall("What programming language does the user prefer?"))
+print(result.answer)  # "Python"
+
+# Ingest a conversation
+asyncio.run(client.ingest([
+    {"role": "user", "content": "I'm building a RAG pipeline."},
+    {"role": "assistant", "content": "Great! Let me help with that."},
+]))
+
+# Get summary
+summary = asyncio.run(client.get_summary())
+```
+
+### A2A (Agent-to-Agent)
+
+Start the A2A server for peer agents to discover and call:
+
+```bash
+cf-memory a2a --port 9120
+```
+
+Agent card at `http://localhost:9120/.well-known/agent.json`
+
+Skills: `remember`, `recall`, `ingest`, `list`, `get`, `summary`
+
+### Python (standalone)
 
 ```python
 import asyncio
@@ -150,49 +279,46 @@ async def main():
         account_id="your-account-id",
         api_token="your-token",
         namespace="my-app",
-        profile="user-123",
+        profile="default",
     ) as client:
-        # Store a memory
-        entry = await client.remember("User prefers dark mode.")
+        # Remember
+        entry = await client.remember("User is based in London.")
         print(f"[{entry.type}] {entry.summary}")
 
-        # Semantic recall
-        result = await client.recall("What UI preferences?")
-        print(f"Answer: {result.answer}")
+        # Recall
+        result = await client.recall("Where is the user based?")
+        print(result.answer)
 
-        # List (no content)
-        entries = await client.list_memories()
-
-        # Get (with content)
-        full = await client.get_memory(entry.id)
-
-        # Ingest conversation (async, writes 3-8s later)
+        # Ingest conversation (async — memories appear 3-8s later)
         await client.ingest([
-            {"role": "user", "content": "I prefer concise answers."},
+            {"role": "user", "content": "I prefer dark mode."},
             {"role": "assistant", "content": "Noted!"},
         ])
 
         # Summary
-        summary = await client.get_summary()
+        print(await client.get_summary())
 
 asyncio.run(main())
 ```
 
-## API reference
+---
 
-Based on [Cloudflare Agent Memory HTTP API](https://developers.cloudflare.com/agent-memory/api/http-api/).
+## Configuration
 
-### Verified behavior (2026-08-23)
+### Environment variables
 
-| Fact | Source |
-|------|--------|
-| `remember` returns `type` + `summary` assigned server-side | Live test |
-| `list` omits `content`; `get` includes it | Live test + docs |
-| `ingest` returns `result: null`, writes appear 3–8s later | Live test |
-| `POST /summary` works; `GET /summary` returns 404 | Live test |
-| Paid Workers ≠ beta access (separate entitlement) | Live test |
-| `remember` latency: 1.3–3.8s | Live test |
-| `recall` latency: ~5s | Live test |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MCP_CLOUDFLARE_API_KEY` | Yes | Cloudflare API token with Agent Memory permission |
+| `CF_ACCOUNT_ID` | No | Cloudflare Account ID (defaults to Iceberg Media) |
+| `CF_MEMORY_NAMESPACE` | No | Namespace name (default: `hermes`) |
+| `CF_MEMORY_PROFILE` | No | Profile name (default: `default`) |
+
+### Getting a Cloudflare API token
+
+1. Go to [Cloudflare Dashboard → API Tokens](https://dash.cloudflare.com/profile/api-tokens)
+2. Create a token with **Agent Memory** permission
+3. You need a **paid Workers subscription** and **beta access** to Agent Memory
 
 ### Limits (official)
 
@@ -204,7 +330,43 @@ Based on [Cloudflare Agent Memory HTTP API](https://developers.cloudflare.com/ag
 | Session ID | 64 chars |
 | Profile name | 100 chars |
 | Namespace name | 32 chars |
-| List page size | 1–1000 (default 20) |
+
+---
+
+## Performance
+
+Designed to never add latency to your agent's turns:
+
+| Operation | Latency | Blocking? |
+|-----------|---------|-----------|
+| `prefetch()` | **0ms** | No — cached + background |
+| `sync_turn()` | **0ms** | No — daemon thread |
+| `remember` | 1.3–3.8s | User-initiated |
+| `recall` | ~5s | User-initiated |
+| `list` | ~0.4s | User-initiated |
+| `summary` | ~0.8s | User-initiated |
+
+---
+
+## CLI reference
+
+```bash
+# Standalone
+cf-memory test                          # Connectivity check
+cf-memory serve [--transport stdio|sse] # MCP server
+cf-memory a2a [--port 9120]             # A2A agent server
+cf-memory card                          # Print agent card JSON
+
+# Hermes plugin
+hermes cloudflare-memory status         # Provider status
+hermes cloudflare-memory test           # Full connectivity test
+hermes cloudflare-memory namespaces     # List namespaces
+hermes cloudflare-memory create-ns NAME # Create namespace
+hermes cloudflare-memory delete-ns NAME # Delete namespace
+hermes cloudflare-memory card           # Print agent card
+```
+
+---
 
 ## Development
 

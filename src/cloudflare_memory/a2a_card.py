@@ -6,7 +6,7 @@ can discover and call for memory operations.
 
 AGENT_CARD = {
     "name": "cloudflare-memory",
-    "description": "Cloudflare Agent Memory — cross-session memory store with semantic recall, fact extraction, and profile summaries.",
+    "description": "CF Memory Plugin — persistent cross-session memory for AI agents via Cloudflare Agent Memory. Supports remember, recall, ingest, summary.",
     "url": "http://localhost:9120",
     "version": "0.1.0",
     "capabilities": {
