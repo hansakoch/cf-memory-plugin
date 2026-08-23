@@ -46,3 +46,6 @@ cf-memory = "cloudflare_memory.main:main"
 
 [project.entry-points."hermes_agent.memory_providers"]
 cloudflare-memory = "cloudflare_memory:register"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cloudflare_memory"]
