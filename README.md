@@ -25,7 +25,7 @@ Gives your agent persistent, cross-session memory powered by [Cloudflare Agent M
 ## Quick start (any agent)
 
 ```bash
-pip install git+https://github.com/hansakoch/cloudflare-memory.git
+pip install git+https://github.com/hansakoch/cf-memory-plugin.git
 
 # Set credentials
 export MCP_CLOUDFLARE_API_KEY="your-cf-api-token"
@@ -66,7 +66,7 @@ Auto-discovered via pip entry point. No files to copy.
 
 ```bash
 # Install
-pip install git+https://github.com/hansakoch/cloudflare-memory.git
+pip install git+https://github.com/hansakoch/cf-memory-plugin.git
 
 # Activate
 hermes config set memory.provider cloudflare-memory
@@ -220,7 +220,7 @@ Add MCP server to pi config:
 Install as a plugin:
 
 ```bash
-pip install git+https://github.com/hansakoch/cloudflare-memory.git
+pip install git+https://github.com/hansakoch/cf-memory-plugin.git
 ```
 
 The package registers via `hermes_agent.memory_providers` entry point. Any Agent Plugins 1.0 compatible host discovers it automatically.
@@ -371,7 +371,7 @@ hermes cloudflare-memory card           # Print agent card
 ## Development
 
 ```bash
-git clone https://github.com/hansakoch/cloudflare-memory.git
+git clone https://github.com/hansakoch/cf-memory-plugin.git
 cd cloudflare-memory
 python -m venv .venv
 source .venv/bin/activate

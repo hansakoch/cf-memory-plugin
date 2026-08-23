@@ -36,10 +36,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hansakoch/cloudflare-memory"
+Homepage = "https://github.com/hansakoch/cf-memory-plugin"
 Documentation = "https://cloudflare-memory.pages.dev"
-Repository = "https://github.com/hansakoch/cloudflare-memory"
-Issues = "https://github.com/hansakoch/cloudflare-memory/issues"
+Repository = "https://github.com/hansakoch/cf-memory-plugin"
+Issues = "https://github.com/hansakoch/cf-memory-plugin/issues"
 
 [project.scripts]
 cf-memory = "cloudflare_memory.main:main"
