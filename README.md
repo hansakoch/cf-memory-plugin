@@ -6,12 +6,12 @@ Persistent memory for AI agents, backed by
 This plugin is a thin client. Cloudflare stores, classifies, and recalls
 memories. You do not run a vector DB, embeddings pipeline, or Worker.
 
-**Private beta.** Paid Workers is required. Paid Workers alone is not enough —
+**Private beta.** Expect 2-4 weeks for access after signing up. Paid Workers is required. Paid Workers alone is not enough —
 you still need Agent Memory entitlement.
 
 | Need | Link |
 |---|---|
-| Join the beta | [Waitlist form](https://forms.gle/RAXbK6gN9Yy89ECw8) |
+| Join the beta (2-4 week wait) | [Waitlist form](https://forms.gle/RAXbK6gN9Yy89ECw8) |
 | Product docs | [developers.cloudflare.com/agent-memory](https://developers.cloudflare.com/agent-memory/) |
 | HTTP API | [HTTP API](https://developers.cloudflare.com/agent-memory/api/http-api/) |
 | Pricing | [Agent Memory pricing](https://developers.cloudflare.com/agent-memory/platform/pricing/) |
@@ -226,6 +226,7 @@ npx wrangler pages deploy ./public --project-name cf-memory-plugin
 - Hermes provider contract: [Nous Research Hermes Agent](https://hermes-agent.nousresearch.com)
 - HTTP client: [httpx](https://www.python-httpx.org/)
 
+- Design inspiration: [Open Brain (OB1)](https://github.com/NateBJones-Projects/OB1) — "One database, one AI gateway, one chat channel — any AI plugs in."
 This repo is not affiliated with Cloudflare or Nous Research.
 
 ## License
