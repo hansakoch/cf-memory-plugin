@@ -128,7 +128,7 @@ Same MCP block everywhere. Only the config file path changes.
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `.claude/mcp.json` or `claude mcp add cf-memory -- cf-memory serve` | [MCP](https://modelcontextprotocol.io) |
 | [Codex](https://github.com/openai/codex) | `~/.codex/config.toml` → `[mcp_servers.cf-memory]` | OpenAI Codex |
 | [Cursor](https://cursor.com) | `.cursor/mcp.json` | Cursor MCP |
-| [Hermes](https://hermes-agent.nousresearch.com) | `hermes config set memory.provider cloudflare-memory` | [Memory providers](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers) |
+| [Hermes](https://hermes-agent.nousresearch.com) | See [Hermes setup](#hermes-setup) below | [Migration guide](docs/hermes-migration-guide.md) |
 | [OpenClaw](https://github.com/openclaw) | host MCP config | OpenClaw |
 | [TRAE](https://www.trae.ai) | `.trae/mcp.json` | TRAE |
 | [OpenCode](https://opencode.ai) | `~/.opencode/config.json` | OpenCode |
@@ -140,10 +140,33 @@ Same MCP block everywhere. Only the config file path changes.
 Hermes is the only native provider. It prefetches in the background so recall
 does not add ~5s to every turn.
 
+### Hermes setup
+
+**Single profile:**
+
 ```bash
+pip install git+https://github.com/hansakoch/cf-memory-plugin.git
+
+# Add to ~/.hermes/.env
+echo 'MCP_CLOUDFLARE_API_KEY=cfut_your_token' >> ~/.hermes/.env
+echo 'CF_ACCOUNT_ID=your_account_id' >> ~/.hermes/.env
+
 hermes config set memory.provider cloudflare-memory
 hermes cloudflare-memory test
 ```
+
+**Multi-profile (hub + specialists):**
+
+Each profile has its own `.env` — the root `.env` does NOT propagate automatically.
+
+```bash
+# For EACH profile that needs memory access:
+echo 'MCP_CLOUDFLARE_API_KEY=cfut_your_token' >> ~/.hermes/profiles/<name>/.env
+echo 'CF_ACCOUNT_ID=your_account_id' >> ~/.hermes/profiles/<name>/.env
+hermes --profile <name> config set memory.provider cloudflare-memory
+```
+
+**Migrating old sessions:** See [docs/hermes-migration-guide.md](docs/hermes-migration-guide.md) for bulk ingest of existing session data.
 
 Python:
 
