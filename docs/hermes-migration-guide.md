@@ -90,7 +90,7 @@ from cloudflare_memory import CloudflareMemoryClient
 
 ACCOUNT_ID = "your_account_id"
 API_TOKEN = "your_token"
-DB_PATH = "~/.hermes/profiles/alfred/state.db"  # adjust path
+DB_PATH = "~/.hermes/profiles/alfred/state.db  # example path"  # adjust path
 
 def get_sessions(db_path):
     conn = sqlite3.connect(db_path)
