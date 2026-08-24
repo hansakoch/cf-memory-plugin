@@ -6,12 +6,12 @@ Persistent memory for AI agents, backed by
 This plugin is a thin client. Cloudflare stores, classifies, and recalls
 memories. You do not run a vector DB, embeddings pipeline, or Worker.
 
-**Private beta.** Paid Workers is required. Paid Workers alone is not enough —
+**Private beta.** Expect 2-4 weeks for access after signing up. Paid Workers is required. Paid Workers alone is not enough —
 you still need Agent Memory entitlement.
 
 | Need | Link |
 |---|---|
-| Join the beta | [Waitlist form](https://forms.gle/RAXbK6gN9Yy89ECw8) |
+| Join the beta (2-4 week wait) | [Waitlist form](https://forms.gle/RAXbK6gN9Yy89ECw8) |
 | Product docs | [developers.cloudflare.com/agent-memory](https://developers.cloudflare.com/agent-memory/) |
 | HTTP API | [HTTP API](https://developers.cloudflare.com/agent-memory/api/http-api/) |
 | Pricing | [Agent Memory pricing](https://developers.cloudflare.com/agent-memory/platform/pricing/) |
@@ -128,7 +128,7 @@ Same MCP block everywhere. Only the config file path changes.
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `.claude/mcp.json` or `claude mcp add cf-memory -- cf-memory serve` | [MCP](https://modelcontextprotocol.io) |
 | [Codex](https://github.com/openai/codex) | `~/.codex/config.toml` → `[mcp_servers.cf-memory]` | OpenAI Codex |
 | [Cursor](https://cursor.com) | `.cursor/mcp.json` | Cursor MCP |
-| [Hermes](https://hermes-agent.nousresearch.com) | `hermes config set memory.provider cloudflare-memory` | [Memory providers](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers) |
+| [Hermes](https://hermes-agent.nousresearch.com) | See [Hermes setup](#hermes-setup) below | [Migration guide](docs/hermes-migration-guide.md) |
 | [OpenClaw](https://github.com/openclaw) | host MCP config | OpenClaw |
 | [TRAE](https://www.trae.ai) | `.trae/mcp.json` | TRAE |
 | [OpenCode](https://opencode.ai) | `~/.opencode/config.json` | OpenCode |
@@ -140,10 +140,33 @@ Same MCP block everywhere. Only the config file path changes.
 Hermes is the only native provider. It prefetches in the background so recall
 does not add ~5s to every turn.
 
+### Hermes setup
+
+**Single profile:**
+
 ```bash
+pip install git+https://github.com/hansakoch/cf-memory-plugin.git
+
+# Add to ~/.hermes/.env
+echo 'MCP_CLOUDFLARE_API_KEY=cfut_your_token' >> ~/.hermes/.env
+echo 'CF_ACCOUNT_ID=your_account_id' >> ~/.hermes/.env
+
 hermes config set memory.provider cloudflare-memory
 hermes cloudflare-memory test
 ```
+
+**Multi-profile (hub + specialists):**
+
+Each profile has its own `.env` — the root `.env` does NOT propagate automatically.
+
+```bash
+# For EACH profile that needs memory access:
+echo 'MCP_CLOUDFLARE_API_KEY=cfut_your_token' >> ~/.hermes/profiles/<name>/.env
+echo 'CF_ACCOUNT_ID=your_account_id' >> ~/.hermes/profiles/<name>/.env
+hermes --profile <name> config set memory.provider cloudflare-memory
+```
+
+**Migrating old sessions:** See [docs/hermes-migration-guide.md](docs/hermes-migration-guide.md) for bulk ingest of existing session data.
 
 Python:
 
@@ -203,6 +226,7 @@ npx wrangler pages deploy ./public --project-name cf-memory-plugin
 - Hermes provider contract: [Nous Research Hermes Agent](https://hermes-agent.nousresearch.com)
 - HTTP client: [httpx](https://www.python-httpx.org/)
 
+- Design inspiration: [Open Brain (OB1)](https://github.com/NateBJones-Projects/OB1) — "One database, one AI gateway, one chat channel — any AI plugs in."
 This repo is not affiliated with Cloudflare or Nous Research.
 
 ## License
