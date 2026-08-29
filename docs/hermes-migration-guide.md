@@ -10,6 +10,11 @@ By default, each Hermes profile has isolated local memory (`~/.hermes/profiles/<
 
 Cloudflare Agent Memory provides one shared brain for all profiles.
 
+Hermes uses this plugin as a **native memory provider** (zero MCP tools,
+background ingest, non-blocking prefetch). Do not also add `cf-memory serve`
+as an MCP server in Hermes — that would inject MCP tool schemas every turn
+for no benefit.
+
 ## Prerequisites
 
 - Hermes Agent installed

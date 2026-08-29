@@ -1,7 +1,12 @@
 """MCP server for Cloudflare Agent Memory.
 
-Exposes remember, recall, list, get, delete, ingest, summary as MCP tools.
-Run: cloudflare-memory serve [--namespace NAME] [--profile NAME]
+Default surface is two tiny tools (remember, recall). Harnesses inject every
+tool schema every turn, so extra tools and long descriptions are pure cost.
+
+Admin tools (list/get/delete/ingest/summary/namespaces) stay on the Python
+client and CLI. Pass --full only for debugging.
+
+Run: cf-memory serve [--namespace NAME] [--profile NAME] [--full]
 """
 
 from __future__ import annotations
@@ -13,11 +18,27 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
-from cloudflare_memory.client import CloudflareMemoryClient, MemoryAPIError
+from cloudflare_memory.client import CloudflareMemoryClient
 
-# ── globals ───────────────────────────────────────────────────────────
+# Call recall only when a fact is missing. Never every turn; never dump the store.
+_INSTRUCTIONS = (
+    "Call recall only when you lack a needed fact. "
+    "Never call it every turn and never dump the store."
+)
+
+SLIM_TOOL_NAMES = ("remember", "recall")
+ADMIN_TOOL_NAMES = (
+    "list_memories",
+    "get_memory",
+    "delete_memory",
+    "ingest",
+    "summary",
+    "list_namespaces",
+    "create_namespace",
+    "delete_namespace",
+)
+
 _client: CloudflareMemoryClient | None = None
-server = MCPServer(name="cloudflare-memory", instructions="Cloudflare Agent Memory operations")
 
 
 def _get_client() -> CloudflareMemoryClient:
@@ -39,6 +60,10 @@ def _get_client() -> CloudflareMemoryClient:
     return _client
 
 
+def _compact(obj: Any) -> str:
+    return json.dumps(obj, separators=(",", ":"))
+
+
 def _entry_dict(e) -> dict:
     d = {"id": e.id, "type": e.type, "summary": e.summary}
     if e.content:
@@ -52,101 +77,108 @@ def _entry_dict(e) -> dict:
     return d
 
 
-# ── tools via decorator ───────────────────────────────────────────────
+# ── core tools (always registered) ────────────────────────────────────
 
-@server.tool()
-async def remember(content: str, session_id: str = "") -> str:
-    """Store a single memory. Returns type + summary. Latency: 1.3–3.8s."""
-    client = _get_client()
-    entry = await client.remember(content, session_id or None)
-    return json.dumps(_entry_dict(entry), indent=2)
+async def remember(content: str) -> str:
+    """Store one fact."""
+    entry = await _get_client().remember(content)
+    return _compact({"id": entry.id, "type": entry.type})
 
 
-@server.tool()
-async def recall(query: str, thinking_level: str = "low", response_length: str = "short") -> str:
-    """Semantic recall — synthesized answer + candidates. Latency: ~5s."""
-    client = _get_client()
-    result = await client.recall(query, thinking_level, response_length)
-    return json.dumps({
-        "answer": result.answer,
-        "candidates": [_entry_dict(c) for c in result.candidates],
-    }, indent=2)
+async def recall(query: str) -> str:
+    """Answer from stored facts."""
+    result = await _get_client().recall(query, thinking_level="low", response_length="short")
+    return result.answer
 
 
-@server.tool()
+# ── admin tools (--full only) ─────────────────────────────────────────
+
 async def list_memories(page: int = 1, per_page: int = 20) -> str:
-    """List memories (omits content). Fast ~0.4s."""
-    client = _get_client()
-    entries = await client.list_memories(page, per_page)
-    return json.dumps([_entry_dict(e) for e in entries], indent=2)
+    """List memories."""
+    entries = await _get_client().list_memories(page, per_page)
+    return _compact([_entry_dict(e) for e in entries])
 
 
-@server.tool()
 async def get_memory(memory_id: str) -> str:
-    """Get one memory by ID (includes content). ~1.4s."""
-    client = _get_client()
-    entry = await client.get_memory(memory_id)
-    return json.dumps(_entry_dict(entry), indent=2)
+    """Get one memory by id."""
+    entry = await _get_client().get_memory(memory_id)
+    return _compact(_entry_dict(entry))
 
 
-@server.tool()
 async def delete_memory(memory_id: str) -> str:
-    """Delete a memory by ID."""
-    client = _get_client()
-    result = await client.delete_memory(memory_id)
-    return json.dumps(result, indent=2)
+    """Delete one memory by id."""
+    result = await _get_client().delete_memory(memory_id)
+    return _compact(result)
 
 
-@server.tool()
 async def ingest(messages: list[dict[str, str]], session_id: str = "") -> str:
-    """Ingest messages for extraction. Max 500. Returns immediately — memories appear 3–8s later."""
-    client = _get_client()
-    result = await client.ingest(messages, session_id or None)
-    return json.dumps(result, indent=2)
+    """Extract memories from messages."""
+    result = await _get_client().ingest(messages, session_id or None)
+    return _compact(result)
 
 
-@server.tool()
 async def summary() -> str:
-    """Markdown summary of the profile's memories."""
-    client = _get_client()
-    return await client.get_summary()
+    """Markdown profile summary."""
+    return await _get_client().get_summary()
 
 
-@server.tool()
 async def list_namespaces() -> str:
-    """List all namespaces in the account."""
-    client = _get_client()
-    ns = await client.list_namespaces()
-    return json.dumps(ns, indent=2)
+    """List namespaces."""
+    ns = await _get_client().list_namespaces()
+    return _compact(ns)
 
 
-@server.tool()
 async def create_namespace(name: str) -> str:
-    """Create a new namespace."""
-    client = _get_client()
-    result = await client.create_namespace(name)
-    return json.dumps(result, indent=2)
+    """Create a namespace."""
+    result = await _get_client().create_namespace(name)
+    return _compact(result)
 
 
-@server.tool()
 async def delete_namespace(name: str) -> str:
-    """Delete a namespace by name."""
-    client = _get_client()
-    result = await client.delete_namespace(name)
-    return json.dumps(result, indent=2)
+    """Delete a namespace."""
+    result = await _get_client().delete_namespace(name)
+    return _compact(result)
 
 
-# ── CLI entry point ───────────────────────────────────────────────────
+_ADMIN_FUNCS = (
+    list_memories,
+    get_memory,
+    delete_memory,
+    ingest,
+    summary,
+    list_namespaces,
+    create_namespace,
+    delete_namespace,
+)
+
+
+def create_server(*, full: bool = False) -> MCPServer:
+    """Build an MCP server. Default: remember + recall only."""
+    server = MCPServer(name="cloudflare-memory", instructions=_INSTRUCTIONS)
+    # structured_output=False omits output_schema from the advertised tool list
+    server.add_tool(remember, structured_output=False)
+    server.add_tool(recall, structured_output=False)
+    if full:
+        for fn in _ADMIN_FUNCS:
+            server.add_tool(fn, structured_output=False)
+    return server
+
 
 def serve(
     namespace: str = "hermes",
     profile: str = "default",
     transport: str = "stdio",
+    full: bool = False,
 ) -> None:
     """Start the MCP server."""
     os.environ.setdefault("CF_MEMORY_NAMESPACE", namespace)
     os.environ.setdefault("CF_MEMORY_PROFILE", profile)
+    server = create_server(full=full)
     if transport == "stdio":
         asyncio.run(server.run_stdio_async())
     else:
         asyncio.run(server.run_sse_async())
+
+
+if __name__ == "__main__":
+    serve()
