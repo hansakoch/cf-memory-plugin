@@ -97,21 +97,47 @@ secrets, passwords, or customer PII you aren't allowed to store.
 
 ## What this is
 
-| You call | Cloudflare does |
-|---|---|
-| `remember` | Store one fact / instruction / event |
-| `recall` | Search + synthesize an answer (~5s) |
-| `ingest` | Extract memories from a conversation (writes land 3–8s later) |
-| `summary` | Markdown profile of what is stored |
-| `list` / `get` / `delete` | Inspect or remove entries |
+| You call | Cloudflare does | Default MCP |
+|---|---|---|
+| `remember` | Store one fact / instruction / event | yes |
+| `recall` | Search + synthesize an answer (~5s) | yes |
+| `ingest` | Extract memories from a conversation (writes land 3–8s later) | CLI / `--full` only |
+| `summary` | Markdown profile of what is stored | CLI / `--full` only |
+| `list` / `get` / `delete` | Inspect or remove entries | CLI / `--full` only |
 
 ---
 
-## Token Usage & Latency
+## MCP surface (token cost)
 
-Each tool makes HTTP calls to Cloudflare. Here's what to expect:
+Harnesses (Grok CLI, Grok Bot, Claude, Codex, Cursor) inject **every** MCP
+tool schema into **every** turn, even if unused. Tool count and description
+size are the cost.
 
-| Tool | Latency | What happens |
+`cf-memory serve` and `python -m cloudflare_memory` advertise **two** tools:
+
+| Tool | Schema | Returns |
+|---|---|---|
+| `remember` | `content: str` | compact `{"id","type"}` |
+| `recall` | `query: str` | short synthesized answer only |
+
+`thinking_level` and `response_length` are hardcoded to `low` / `short`. They
+are not MCP parameters.
+
+**Not registered on the default MCP server:** `list_memories`, `get_memory`,
+`delete_memory`, `ingest`, `summary`, `list_namespaces`, `create_namespace`,
+`delete_namespace`. Use the Python client or CLI. `ingest` and `summary` are
+CLI-only because those schemas blow context.
+
+Debug with `cf-memory serve --full` (old admin tool set).
+
+Hermes does **not** use this MCP server. It uses the native memory provider
+(background ingest, non-blocking prefetch, **zero MCP tools**).
+
+## HTTP latency (client / CLI)
+
+Each client call hits Cloudflare. Here's what to expect:
+
+| Call | Latency | What happens |
 |---|---|---|
 | `remember` | ~2s (1.3–3.8s) | Classify + store one memory |
 | `recall` | ~5s | Semantic search + LLM synthesis of answer |
@@ -134,6 +160,8 @@ for post-beta rates.
 ## MCP Config Examples
 
 Same MCP block everywhere. Only the config file path changes.
+`args: ["serve"]` is the slim default (two tools). Use `["serve", "--full"]`
+only when debugging.
 
 ### Generic MCP block
 
@@ -185,8 +213,9 @@ block above.
 
 ### Hermes
 
-Hermes is the only native provider. It prefetches in the background so recall
-does not add ~5s to every turn.
+Hermes is the only native provider — **zero MCP tools**, so it does not pay
+the MCP schema tax. It prefetches in the background so recall does not add
+~5s to every turn, and it ingests turns without blocking.
 
 **Single profile:**
 
@@ -310,13 +339,25 @@ asyncio.run(main())
 
 ```bash
 cf-memory test                          # connectivity
-cf-memory serve                         # MCP (stdio)
+cf-memory serve                         # MCP (stdio): remember + recall only
+cf-memory serve --full                  # MCP with admin tools (debug)
+cf-memory list                          # list memories (CLI-only)
+cf-memory get MEMORY_ID                 # get one memory (CLI-only)
+cf-memory delete MEMORY_ID              # delete one memory (CLI-only)
+cf-memory summary                       # markdown summary (CLI-only)
+cf-memory ingest messages.json          # extract from a conversation (CLI-only)
+cf-memory namespaces                    # list namespaces (CLI-only)
+cf-memory create-ns NAME                # create a namespace (CLI-only)
+cf-memory delete-ns NAME                # delete a namespace (CLI-only)
 cf-memory a2a --port 9120               # A2A on localhost
 cf-memory card                          # print agent card
 
 hermes cloudflare-memory status
 hermes cloudflare-memory namespaces
 ```
+
+`ingest` and `summary` stay on the CLI because registering them as MCP tools
+blows context on every turn.
 
 ---
 
@@ -417,7 +458,8 @@ The package isn't on your `PATH`. Try:
 pip install --force-reinstall git+https://github.com/hansakoch/cf-memory-plugin.git
 ```
 
-Or run it as a module: `python -m cloudflare_memory serve`.
+Or run it as a module: `python -m cloudflare_memory` (slim MCP) or
+`python -m cloudflare_memory serve --full`.
 
 ### MCP client can't connect
 
@@ -448,10 +490,10 @@ This is informational. Existing namespaces are fine — the plugin reuses them.
 If a namespace doesn't exist, create it:
 
 ```bash
-# Via MCP tool
-cf-memory serve  # then use create_namespace tool
+# Via CLI (not an MCP tool — namespaces are not on the default server)
+cf-memory create-ns my-app
 
-# Or set it and it will be created on first use
+# Or set it and it will be created on first write
 export CF_MEMORY_NAMESPACE="my-app"
 ```
 
