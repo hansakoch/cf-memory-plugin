@@ -21,10 +21,7 @@ from mcp.server.mcpserver import MCPServer
 from cloudflare_memory.client import CloudflareMemoryClient
 
 # Call recall only when a fact is missing. Never every turn; never dump the store.
-_INSTRUCTIONS = (
-    "Call recall only when you lack a needed fact. "
-    "Never call it every turn and never dump the store."
-)
+_INSTRUCTIONS = "Recall only when you lack a fact. Not every turn."
 
 SLIM_TOOL_NAMES = ("remember", "recall")
 ADMIN_TOOL_NAMES = (
