@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -24,6 +25,11 @@ MAX_RECALL_QUERY = 1024  # 1 KB UTF-8
 MAX_CONTENT_BYTES = 32_768  # 32 KB UTF-8
 MAX_INGEST_MESSAGES = 500
 LIST_PAGE_MAX = 1000
+
+# ── retry config ─────────────────────────────────────────────────────
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = (1.0, 2.0, 4.0)  # seconds between retries
+_RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 
 class MemoryAPIError(Exception):
@@ -138,20 +144,42 @@ class CloudflareMemoryClient:
             raise MemoryAPIError(resp.status_code, err["code"], err["message"], data)
         return data
 
+    async def _request_with_retry(self, method: str, path: str, **kwargs) -> httpx.Response:
+        """HTTP request with exponential backoff on transient errors."""
+        c = await self._get_client()
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                resp = await getattr(c, method)(path, **kwargs)
+                if resp.status_code not in _RETRYABLE_STATUSES:
+                    return resp
+                # Retryable status — check if CF reports success:false
+                data = resp.json()
+                if data.get("success"):
+                    return resp
+                errors = data.get("errors", [])
+                code = errors[0].get("code", 0) if errors else 0
+                # Don't retry auth errors
+                if resp.status_code in (401, 403):
+                    raise MemoryAPIError(resp.status_code, code, errors[0].get("message", "auth error"), data)
+                last_exc = MemoryAPIError(resp.status_code, code, errors[0].get("message", "transient"), data)
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError) as e:
+                last_exc = e
+            if attempt < _MAX_RETRIES - 1:
+                await asyncio.sleep(_RETRY_BACKOFF[attempt])
+        raise last_exc  # type: ignore[misc]
+
     # ── namespace management ──────────────────────────────────────────
     async def list_namespaces(self) -> list[dict]:
-        c = await self._get_client()
-        r = await c.get("/namespaces")
+        r = await self._request_with_retry("get", "/namespaces")
         return self._check(r).get("result", [])
 
     async def create_namespace(self, name: str | None = None) -> dict:
-        c = await self._get_client()
-        r = await c.post("/namespaces", json={"name": name or self.namespace})
+        r = await self._request_with_retry("post", "/namespaces", json={"name": name or self.namespace})
         return self._check(r).get("result", {})
 
     async def delete_namespace(self, name: str | None = None) -> dict:
-        c = await self._get_client()
-        r = await c.delete(f"/namespaces/{name or self.namespace}")
+        r = await self._request_with_retry("delete", f"/namespaces/{name or self.namespace}")
         return self._check(r).get("result", {})
 
     # ── remember (single memory, 1.3–3.8s) ───────────────────────────
@@ -167,8 +195,7 @@ class CloudflareMemoryClient:
         body: dict[str, Any] = {"content": content}
         if session_id:
             body["sessionId"] = session_id
-        c = await self._get_client()
-        r = await c.post(self._profile_path("remember"), json=body)
+        r = await self._request_with_retry("post", self._profile_path("remember"), json=body)
         data = self._check(r)
         return MemoryEntry.from_dict(data["result"])
 
@@ -179,8 +206,8 @@ class CloudflareMemoryClient:
         per_page: int = 20,
     ) -> list[MemoryEntry]:
         """List memories (omits content field)."""
-        c = await self._get_client()
-        r = await c.get(
+        r = await self._request_with_retry(
+            "get",
             self._profile_path("memories"),
             params={"page": page, "perPage": min(per_page, LIST_PAGE_MAX)},
         )
@@ -190,15 +217,13 @@ class CloudflareMemoryClient:
     # ── get (includes content, ~1.4s) ─────────────────────────────────
     async def get_memory(self, memory_id: str) -> MemoryEntry:
         """Get one memory by ID (includes content)."""
-        c = await self._get_client()
-        r = await c.get(self._profile_path("memories", memory_id))
+        r = await self._request_with_retry("get", self._profile_path("memories", memory_id))
         data = self._check(r)
         return MemoryEntry.from_dict(data["result"])
 
     # ── delete ────────────────────────────────────────────────────────
     async def delete_memory(self, memory_id: str) -> dict:
-        c = await self._get_client()
-        r = await c.delete(self._profile_path("memories", memory_id))
+        r = await self._request_with_retry("delete", self._profile_path("memories", memory_id))
         return self._check(r).get("result", {})
 
     # ── recall (~5s, synthesized answer + candidates) ─────────────────
@@ -214,8 +239,8 @@ class CloudflareMemoryClient:
         """
         if len(query.encode()) > MAX_RECALL_QUERY:
             raise ValueError(f"Query exceeds {MAX_RECALL_QUERY} bytes")
-        c = await self._get_client()
-        r = await c.post(
+        r = await self._request_with_retry(
+            "post",
             self._profile_path("recall"),
             json={
                 "query": query,
@@ -243,23 +268,35 @@ class CloudflareMemoryClient:
         body: dict[str, Any] = {"messages": messages}
         if session_id:
             body["sessionId"] = session_id
-        c = await self._get_client()
-        r = await c.post(self._profile_path("ingest"), json=body)
+        r = await self._request_with_retry("post", self._profile_path("ingest"), json=body)
         return self._check(r)
 
     # ── summary (POST only — GET 404s) ────────────────────────────────
     async def get_summary(self) -> str:
         """POST /summary returns markdown summary.  GET does NOT work."""
-        c = await self._get_client()
-        r = await c.post(self._profile_path("summary"), json={})
+        r = await self._request_with_retry("post", self._profile_path("summary"), json={})
         data = self._check(r)
         return data.get("result", {}).get("summary", "")
 
     # ── sync convenience ──────────────────────────────────────────────
     def remember_sync(self, content: str, session_id: str | None = None) -> MemoryEntry:
-        return asyncio.get_event_loop().run_until_complete(
-            self.remember(content, session_id)
-        )
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(asyncio.run, self.remember(content, session_id)).result()
+        return asyncio.run(self.remember(content, session_id))
 
     def recall_sync(self, query: str, **kw) -> RecallResult:
-        return asyncio.get_event_loop().run_until_complete(self.recall(query, **kw))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(asyncio.run, self.recall(query, **kw)).result()
+        return asyncio.run(self.recall(query, **kw))

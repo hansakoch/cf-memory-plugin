@@ -73,16 +73,20 @@ def test_hermes_prefetch_is_non_blocking(monkeypatch):
 def test_hermes_sync_turn_starts_background_ingest(monkeypatch):
     provider = CloudflareMemoryProvider()
     provider._client = MagicMock()
-    started = []
+    submitted = []
 
-    class FakeThread:
-        def __init__(self, target=None, daemon=None):
-            self.target = target
-            self.daemon = daemon
+    class FakeExecutor:
+        def __init__(self, *args, **kwargs):
+            pass
 
-        def start(self):
-            started.append(self.daemon)
+        def submit(self, fn, *args, **kwargs):
+            submitted.append(fn)
+            return MagicMock()
 
-    monkeypatch.setattr("cloudflare_memory.provider.threading.Thread", FakeThread)
+        def shutdown(self, wait=True):
+            pass
+
+    monkeypatch.setattr(provider, "_executor", FakeExecutor())
     provider.sync_turn("remember that I like dark mode", "ok")
-    assert started == [True]
+    assert len(submitted) == 1
+    assert callable(submitted[0])

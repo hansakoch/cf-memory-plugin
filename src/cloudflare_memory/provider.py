@@ -15,6 +15,7 @@ import logging
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -25,8 +26,8 @@ from cloudflare_memory.client import CloudflareMemoryClient, MemoryAPIError
 logger = logging.getLogger(__name__)
 
 # ── cache config ──────────────────────────────────────────────────────
-_CACHE_TTL = 300  # 5 min
-_CACHE_MAX = 64
+_CACHE_TTL = 600  # 10 min — longer TTL reduces redundant CF calls
+_CACHE_MAX = 128  # more entries for multi-profile setups
 
 
 class _RecallCache:
@@ -85,6 +86,12 @@ class _AsyncRunner:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result(timeout=60)
 
+    def run_fire_and_forget(self, coro):
+        """Fire an async coroutine without waiting for the result."""
+        if not self._loop or self._loop.is_closed():
+            self.start()
+        asyncio.run_coroutine_threadsafe(coro, self._loop)
+
     def stop(self):
         if self._loop and not self._loop.is_closed():
             self._loop.call_soon_threadsafe(self._loop.stop)
@@ -106,11 +113,13 @@ class CloudflareMemoryProvider(MemoryProvider):
         self._hermes_home: str = ""
         self._cache = _RecallCache()
         self._bg_thread: threading.Thread | None = None
+        self._pending_recall_query: str = ""
         self._last_recall_text: str = ""
         self._last_recall_count: int = 0
         self._namespace: str = "hermes"
         self._profile: str = "default"
         self._runner = _AsyncRunner()
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="cf-mem")
 
     # ── identity ──────────────────────────────────────────────────────
     @property
@@ -158,6 +167,7 @@ class CloudflareMemoryProvider(MemoryProvider):
         )
 
     def shutdown(self) -> None:
+        self._executor.shutdown(wait=False)
         if self._client:
             try:
                 self._runner.run(self._client.close())
@@ -169,9 +179,8 @@ class CloudflareMemoryProvider(MemoryProvider):
     # ── system prompt ─────────────────────────────────────────────────
     def system_prompt_block(self) -> str:
         return (
-            f"[Cloudflare Agent Memory active — namespace={self._namespace}, "
-            f"profile={self._profile}. Use cf_remember to store facts, "
-            f"cf_recall to search. Memories persist across sessions.]"
+            f"[CF Memory: ns={self._namespace} profile={self._profile}. "
+            f"cf_remember to store, cf_recall to search.]"
         )
 
     # ── prefetch (MUST be fast) ───────────────────────────────────────
@@ -197,9 +206,11 @@ class CloudflareMemoryProvider(MemoryProvider):
         self._fire_background_recall(query, session_id)
 
     def _fire_background_recall(self, query: str, session_id: str) -> None:
-        """Fire recall in a daemon thread, cache the result."""
+        """Fire recall in a daemon thread, cache the result. Deduplicates."""
         if self._bg_thread and self._bg_thread.is_alive():
-            return  # already running
+            # Already running — just update the pending query for next turn
+            self._pending_recall_query = query
+            return
 
         def _do_recall():
             try:
@@ -211,6 +222,17 @@ class CloudflareMemoryProvider(MemoryProvider):
                     self._cache.put(query[:256], formatted, count)
                     self._last_recall_text = formatted
                     self._last_recall_count = count
+                # Process any pending query that arrived while we were working
+                pending = self._pending_recall_query
+                if pending and pending != query:
+                    self._pending_recall_query = ""
+                    try:
+                        result2 = self._runner.run(self._client.recall(pending))
+                        if result2.answer:
+                            formatted2 = f"[CF Memory recall]: {result2.answer}"
+                            self._cache.put(pending[:256], formatted2, len(result2.candidates))
+                    except Exception:
+                        pass
             except Exception as e:
                 logger.debug("Background recall failed: %s", e)
 
@@ -235,7 +257,7 @@ class CloudflareMemoryProvider(MemoryProvider):
         session_id: str = "",
         messages: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
-        """Ingest turn to CF Agent Memory. Non-blocking (daemon thread).
+        """Ingest turn to CF Agent Memory. Non-blocking (thread pool).
 
         ingest() returns immediately with result:null;
         memories appear 3–8s later.
@@ -262,49 +284,36 @@ class CloudflareMemoryProvider(MemoryProvider):
             except Exception as e:
                 logger.warning("CF Memory ingest failed: %s", e)
 
-        t = threading.Thread(target=_do_ingest, daemon=True)
-        t.start()
+        self._executor.submit(_do_ingest)
 
     # ── tools ─────────────────────────────────────────────────────────
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
         return [
             {
                 "name": "cf_remember",
-                "description": (
-                    "Store a single memory in Cloudflare Agent Memory. "
-                    "Returns type + summary assigned by CF. Latency: 1.3–3.8s."
-                ),
+                "description": "Store one fact in CF Agent Memory (~2s).",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "content": {
-                            "type": "string",
-                            "description": "The memory content to store (≤32KB).",
-                        },
+                        "content": {"type": "string"},
                     },
                     "required": ["content"],
                 },
             },
             {
                 "name": "cf_recall",
-                "description": (
-                    "Semantic recall from Cloudflare Agent Memory. "
-                    "Returns synthesized answer + candidate memories. Latency: ~5s."
-                ),
+                "description": "Semantic search in CF Agent Memory (~5s).",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Recall query (≤1KB).",
-                        },
+                        "query": {"type": "string"},
                     },
                     "required": ["query"],
                 },
             },
             {
                 "name": "cf_list",
-                "description": "List memories (omits content — use cf_get for content). Fast ~0.4s.",
+                "description": "List memories (no content). ~0.4s.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -315,7 +324,7 @@ class CloudflareMemoryProvider(MemoryProvider):
             },
             {
                 "name": "cf_get",
-                "description": "Get one memory by ID (includes content). ~1.4s.",
+                "description": "Get one memory by ID (with content). ~1.4s.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -326,7 +335,7 @@ class CloudflareMemoryProvider(MemoryProvider):
             },
             {
                 "name": "cf_summary",
-                "description": "Get a markdown summary of the profile's memories.",
+                "description": "Markdown summary of stored memories.",
                 "parameters": {"type": "object", "properties": {}},
             },
             {
@@ -421,8 +430,7 @@ class CloudflareMemoryProvider(MemoryProvider):
             except Exception as e:
                 logger.warning("CF Memory session-end ingest failed: %s", e)
 
-        t = threading.Thread(target=_do_end_ingest, daemon=True)
-        t.start()
+        self._executor.submit(_do_end_ingest)
 
     # ── config schema ─────────────────────────────────────────────────
     def get_config_schema(self) -> List[Dict[str, Any]]:
