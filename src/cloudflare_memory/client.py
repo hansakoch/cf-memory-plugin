@@ -111,9 +111,14 @@ class CloudflareMemoryClient:
                 base_url=f"{_BASE}/{self.account_id}/agent-memory",
                 headers={
                     "Authorization": f"Bearer {self.api_token}",
-                    "User-Agent": "cf-memory-plugin/0.1.0",
+                    "User-Agent": "cf-memory-plugin/0.2.0",
                 },
                 timeout=httpx.Timeout(self.timeout),
+                limits=httpx.Limits(
+                    max_connections=4,
+                    max_keepalive_connections=2,
+                    keepalive_expiry=120,
+                ),
             )
         return self._client
 

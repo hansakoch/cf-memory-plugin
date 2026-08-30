@@ -161,6 +161,45 @@ def create_server(*, full: bool = False) -> MCPServer:
     return server
 
 
+def _preflight_check() -> None:
+    """Validate credentials before entering the MCP stdio loop.
+
+    Prints clear errors to stderr and exits non-zero if setup is wrong.
+    This prevents silent failures where the harness starts the server
+    but every tool call returns an auth error.
+    """
+    import sys
+
+    from cloudflare_memory.credentials import (
+        ACCOUNT_ENV,
+        TOKEN_ENV,
+        CredentialsError,
+        require_account_id,
+        require_token,
+    )
+
+    try:
+        require_token()
+    except CredentialsError:
+        print(
+            f"cf-memory: {TOKEN_ENV} is not set.\n"
+            f"Create a token at https://dash.cloudflare.com/profile/api-tokens\n"
+            f"with 'Agent Memory' permission, then set {TOKEN_ENV} in your environment.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    try:
+        require_account_id()
+    except CredentialsError:
+        print(
+            f"cf-memory: {ACCOUNT_ENV} is not set.\n"
+            f"Find it in the Cloudflare dashboard sidebar: https://dash.cloudflare.com/",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def serve(
     namespace: str = "hermes",
     profile: str = "default",
@@ -168,6 +207,7 @@ def serve(
     full: bool = False,
 ) -> None:
     """Start the MCP server."""
+    _preflight_check()
     os.environ.setdefault("CF_MEMORY_NAMESPACE", namespace)
     os.environ.setdefault("CF_MEMORY_PROFILE", profile)
     server = create_server(full=full)
