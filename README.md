@@ -36,8 +36,8 @@ pip install git+https://github.com/hansakoch/cf-memory-plugin.git
 export MCP_CLOUDFLARE_API_KEY="cf-api-token-with-agent-memory"
 export CF_ACCOUNT_ID="your-32-char-account-id"
 
-# 3. Test connectivity
-cf-memory test
+# 3. Verify everything works
+cf-memory doctor
 ```
 
 `CF_ACCOUNT_ID` is required. There is no default account. Find it in the
@@ -50,14 +50,40 @@ with **Agent Memory** permission only. Do not reuse a Global API Key.
 ### Verify it works
 
 ```bash
-$ cf-memory test
-✓ Account: abc123...
-✓ Token: valid
-✓ Agent Memory: enabled
-✓ Namespace "hermes" exists
+$ cf-memory doctor
+cf-memory doctor — full diagnostic
+
+1. Credentials
+   ✓ MCP_CLOUDFLARE_API_KEY is set (cfut_W5...6d4e0)
+   ✓ CF_ACCOUNT_ID is set (0870b0bd...)
+   Namespace: hermes
+   Profile:   default
+
+2. Connectivity
+   ✓ API reachable (0.8s)
+
+3. Namespace
+   ✓ Namespace 'hermes' exists
+
+4. Profile & Memories
+   ✓ Profile 'default' has 20 memories
+
+5. Write/Read Test
+   ✓ remember: 1.4s [fact] cf-memory doctor connectivity test
+   ✓ recall:   3.2s — cf-memory doctor connectivity test
+   ✓ cleanup:  test memory deleted
+
+6. Latency Summary
+   list_namespaces: 0.8s
+   remember:        1.4s
+   recall:          3.2s
+
+──────────────────────────────────────────────────
+✓ All checks passed — cf-memory is healthy
 ```
 
-If any step fails, see [Troubleshooting](#troubleshooting) below.
+If anything fails, the output tells you exactly what to fix.
+See [Troubleshooting](#troubleshooting) for details.
 
 ---
 
@@ -338,7 +364,8 @@ asyncio.run(main())
 ## CLI
 
 ```bash
-cf-memory test                          # connectivity
+cf-memory doctor                        # full diagnostic (run this first!)
+cf-memory test                          # quick connectivity check
 cf-memory serve                         # MCP (stdio): remember + recall only
 cf-memory serve --full                  # MCP with admin tools (debug)
 cf-memory list                          # list memories (CLI-only)
@@ -355,6 +382,10 @@ cf-memory card                          # print agent card
 hermes cloudflare-memory status
 hermes cloudflare-memory namespaces
 ```
+
+**Run `cf-memory doctor` after setup** — it checks credentials, connectivity,
+namespace, profile, memory count, and latency in one pass. If anything is
+broken, it tells you exactly what to fix.
 
 `ingest` and `summary` stay on the CLI because registering them as MCP tools
 blows context on every turn.
@@ -500,7 +531,47 @@ export CF_MEMORY_NAMESPACE="my-app"
 ### Rate limits
 
 Cloudflare enforces API rate limits. If you see `429 Too Many Requests`, back
-off and retry. Avoid tight loops calling `recall` or `remember` in scripts.
+off and retry. The plugin automatically retries transient errors (429, 5xx) up
+to 3 times with exponential backoff.
+
+### MCP server crash loop (every 5 minutes)
+
+If your agent logs show the MCP server failing and restarting every 5 minutes,
+the most common cause is **missing dependencies** in a sibling MCP server (not
+cf-memory itself). For example, a Node.js MCP server that was never `npm install`ed.
+
+**Diagnosis:**
+```bash
+# Check your agent's MCP stderr log
+cat ~/.hermes/profiles/<profile>/logs/mcp-stderr.log | tail -20
+
+# Look for: ERR_MODULE_NOT_FOUND, Cannot find package, etc.
+```
+
+**Fix:** Install the missing dependencies in the failing MCP server's directory,
+then restart your agent gateway. The cf-memory MCP server itself has no external
+dependencies beyond Python packages.
+
+**Prevention:** Run `cf-memory doctor` after any config change — it validates
+the full stack in one pass.
+
+### `cf-memory doctor` — run this first
+
+If anything feels broken, run the doctor:
+
+```bash
+cf-memory doctor
+```
+
+It checks:
+1. Credentials (`MCP_CLOUDFLARE_API_KEY`, `CF_ACCOUNT_ID`)
+2. API connectivity and auth
+3. Namespace existence
+4. Profile and memory count
+5. Write/read round-trip with latency
+6. Actionable error messages for every failure
+
+Exit code 0 = healthy. Exit code 1 = something is wrong (the output tells you what).
 
 ---
 

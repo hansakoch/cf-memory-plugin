@@ -40,6 +40,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_test = sub.add_parser("test", help="Test API connectivity")
     _add_scope(p_test)
 
+    # ── doctor (full diagnostic) ──────────────────────────────────────
+    p_doctor = sub.add_parser(
+        "doctor",
+        help="Full diagnostic: credentials, connectivity, namespace, latency, config",
+    )
+    _add_scope(p_doctor)
+
     # ── card (print agent card) ───────────────────────────────────────
     sub.add_parser("card", help="Print A2A agent card JSON")
 
@@ -112,6 +119,9 @@ def main() -> None:
 
     elif args.command == "test":
         asyncio.run(_test(args.namespace, args.profile))
+
+    elif args.command == "doctor":
+        asyncio.run(_doctor(args.namespace, args.profile))
 
     elif args.command == "card":
         from cloudflare_memory.a2a_card import AGENT_CARD
@@ -199,6 +209,158 @@ async def _test(namespace: str | None, profile: str | None) -> None:
             print(f"✗ Summary failed: {e}")
 
     print("\nAll checks passed.")
+
+
+async def _doctor(namespace: str | None, profile: str | None) -> None:
+    """Full diagnostic — checks everything a user needs to verify setup."""
+    import time
+    from cloudflare_memory.client import MemoryAPIError
+    from cloudflare_memory.credentials import (
+        ACCOUNT_ENV,
+        NAMESPACE_ENV,
+        PROFILE_ENV,
+        TOKEN_ENV,
+        CredentialsError,
+        require_account_id,
+        require_token,
+    )
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    print("cf-memory doctor — full diagnostic\n")
+
+    # ── 1. Credentials ────────────────────────────────────────────────
+    print("1. Credentials")
+    try:
+        token = require_token()
+        print(f"   ✓ {TOKEN_ENV} is set ({token[:8]}...{token[-4:]})")
+    except CredentialsError:
+        errors.append(f"{TOKEN_ENV} is not set")
+        print(f"   ✗ {TOKEN_ENV} is not set")
+        print("     → Create a token at https://dash.cloudflare.com/profile/api-tokens")
+        print("     → Select 'Agent Memory' permission only")
+
+    try:
+        account = require_account_id()
+        print(f"   ✓ {ACCOUNT_ENV} is set ({account[:8]}...)")
+    except CredentialsError:
+        errors.append(f"{ACCOUNT_ENV} is not set")
+        print(f"   ✗ {ACCOUNT_ENV} is not set")
+        print("     → Find it in the Cloudflare dashboard sidebar: https://dash.cloudflare.com/")
+
+    ns = namespace or os.environ.get(NAMESPACE_ENV) or "hermes"
+    prof = profile or os.environ.get(PROFILE_ENV) or "default"
+    print(f"   Namespace: {ns}")
+    print(f"   Profile:   {prof}")
+
+    if errors:
+        print(f"\n✗ Cannot continue — fix credentials first.")
+        sys.exit(1)
+
+    # ── 2. Connectivity ───────────────────────────────────────────────
+    print("\n2. Connectivity")
+    client = _make_client(namespace, profile)
+    async with client:
+        t0 = time.monotonic()
+        try:
+            nss = await client.list_namespaces()
+            latency = time.monotonic() - t0
+            print(f"   ✓ API reachable ({latency:.1f}s)")
+        except MemoryAPIError as e:
+            if e.status == 401:
+                errors.append("API token is invalid or expired")
+                print(f"   ✗ 401 Unauthorized — token is invalid or expired")
+                print("     → Create a new token at https://dash.cloudflare.com/profile/api-tokens")
+            elif e.status == 403:
+                errors.append("API token missing Agent Memory permission")
+                print(f"   ✗ 403 Forbidden — token lacks Agent Memory permission")
+                print("     → Edit token at https://dash.cloudflare.com/profile/api-tokens")
+                print("     → Add 'Agent Memory' permission")
+            else:
+                errors.append(f"API error: {e}")
+                print(f"   ✗ {e}")
+            sys.exit(1)
+        except Exception as e:
+            errors.append(f"Connection failed: {e}")
+            print(f"   ✗ Connection failed: {e}")
+            print("     → Check network connectivity to api.cloudflare.com")
+            sys.exit(1)
+
+        # ── 3. Namespace ──────────────────────────────────────────────
+        print("\n3. Namespace")
+        ns_names = [n.get("name", "?") for n in nss]
+        if ns in ns_names:
+            print(f"   ✓ Namespace '{ns}' exists")
+        else:
+            warnings.append(f"Namespace '{ns}' does not exist (will be created on first write)")
+            print(f"   ⚠ Namespace '{ns}' does not exist")
+            print("     → Will be created automatically on first write, or run:")
+            print(f"       cf-memory create-ns {ns}")
+
+        # ── 4. Profile & memories ─────────────────────────────────────
+        print("\n4. Profile & Memories")
+        try:
+            entries = await client.list_memories()
+            print(f"   ✓ Profile '{prof}' has {len(entries)} memories")
+            if entries:
+                types: dict[str, int] = {}
+                for e in entries:
+                    types[e.type] = types.get(e.type, 0) + 1
+                for t, c in sorted(types.items(), key=lambda x: -x[1]):
+                    print(f"     {t}: {c}")
+        except MemoryAPIError as e:
+            if "not found" in str(e).lower() or e.status == 404:
+                warnings.append(f"Profile '{prof}' does not exist yet")
+                print(f"   ⚠ Profile '{prof}' not found (will be created on first write)")
+            else:
+                print(f"   ✗ Could not list memories: {e}")
+
+        # ── 5. Write/read test ────────────────────────────────────────
+        print("\n5. Write/Read Test")
+        try:
+            t0 = time.monotonic()
+            entry = await client.remember(
+                "cf-memory doctor connectivity test — safe to delete",
+                session_id="doctor-test",
+            )
+            write_latency = time.monotonic() - t0
+            print(f"   ✓ remember: {write_latency:.1f}s [{entry.type}] {entry.summary[:60]}")
+
+            t0 = time.monotonic()
+            result = await client.recall("doctor connectivity test")
+            read_latency = time.monotonic() - t0
+            print(f"   ✓ recall:   {read_latency:.1f}s — {result.answer[:60]}")
+
+            await client.delete_memory(entry.id)
+            print(f"   ✓ cleanup:  test memory deleted")
+        except MemoryAPIError as e:
+            errors.append(f"Write/read test failed: {e}")
+            print(f"   ✗ {e}")
+
+        # ── 6. Latency summary ────────────────────────────────────────
+        print("\n6. Latency Summary")
+        print(f"   list_namespaces: {latency:.1f}s")
+        print(f"   remember:        {write_latency:.1f}s" if 'write_latency' in dir() else "   remember:        skipped")
+        print(f"   recall:          {read_latency:.1f}s" if 'read_latency' in dir() else "   recall:          skipped")
+        if 'write_latency' in dir() and write_latency > 5.0:
+            warnings.append(f"remember latency is high ({write_latency:.1f}s) — check network to Cloudflare")
+        if 'read_latency' in dir() and read_latency > 10.0:
+            warnings.append(f"recall latency is high ({read_latency:.1f}s) — check network to Cloudflare")
+
+    # ── Summary ───────────────────────────────────────────────────────
+    print("\n" + "─" * 50)
+    if errors:
+        print(f"✗ {len(errors)} error(s), {len(warnings)} warning(s)")
+        for e in errors:
+            print(f"  ERROR: {e}")
+        sys.exit(1)
+    elif warnings:
+        print(f"✓ Passed with {len(warnings)} warning(s)")
+        for w in warnings:
+            print(f"  WARN: {w}")
+    else:
+        print("✓ All checks passed — cf-memory is healthy")
 
 
 def _print_json(obj: Any) -> None:

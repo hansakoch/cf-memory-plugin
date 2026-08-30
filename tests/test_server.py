@@ -186,3 +186,27 @@ def test_cli_exposes_admin_commands():
     for cmd in ("list", "get", "delete", "ingest", "summary", "namespaces", "create-ns", "delete-ns"):
         argv = [cmd, "x"] if cmd in needs_id else [cmd]
         assert parser.parse_args(argv).command == cmd
+
+
+def test_cli_exposes_doctor_command():
+    parser = build_parser()
+    args = parser.parse_args(["doctor"])
+    assert args.command == "doctor"
+
+
+def test_preflight_check_exits_on_missing_token(monkeypatch):
+    monkeypatch.delenv("MCP_CLOUDFLARE_API_KEY", raising=False)
+    monkeypatch.delenv("CF_ACCOUNT_ID", raising=False)
+    with pytest.raises(SystemExit) as exc_info:
+        from cloudflare_memory.server import _preflight_check
+        _preflight_check()
+    assert exc_info.value.code == 1
+
+
+def test_preflight_check_exits_on_missing_account(monkeypatch):
+    monkeypatch.setenv("MCP_CLOUDFLARE_API_KEY", "test-token")
+    monkeypatch.delenv("CF_ACCOUNT_ID", raising=False)
+    with pytest.raises(SystemExit) as exc_info:
+        from cloudflare_memory.server import _preflight_check
+        _preflight_check()
+    assert exc_info.value.code == 1
