@@ -622,3 +622,97 @@ If you have mcp < 1.0, you may need to update:
 ```bash
 pip install --upgrade mcp
 ```
+
+## Multi-Agent Setup (All Profiles)
+
+### Automatic Configuration
+When installing cf-memory-plugin, configure ALL Hermes profiles:
+
+```bash
+# For each profile in ~/.hermes/profiles/:
+for profile in $(ls ~/.hermes/profiles/); do
+  # Set memory provider
+  hermes --profile $profile config set memory.provider cloudflare-memory
+  
+  # Add MCP server
+  cat >> ~/.hermes/profiles/$profile/config.yaml << 'MCP'
+mcp:
+  servers:
+    cf-memory:
+      command: cf-memory
+      args: ["serve"]
+      env:
+        MCP_CLOUDFLARE_API_KEY: ${MCP_CLOUDFLARE_API_KEY}
+        CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
+MCP
+  
+  # Add vision support
+  current=$(hermes --profile $profile config get toolsets 2>/dev/null)
+  if ! echo "$current" | grep -q "computer_use"; then
+    hermes --profile $profile config set toolsets "$current,computer_use"
+  fi
+  
+  # Remove old memory toolset (prevents using local memory)
+  current=$(hermes --profile $profile config get toolsets 2>/dev/null)
+  if echo "$current" | grep -q "memory"; then
+    new=$(echo "$current" | sed 's/,memory//g' | sed 's/memory,//g')
+    hermes --profile $profile config set toolsets "$new"
+  fi
+done
+```
+
+### SOUL.md Migration
+Store all SOUL.md files in CF memory for cross-agent access:
+
+```bash
+python3 << 'PYEOF'
+import asyncio, os, glob
+from cloudflare_memory import CloudflareMemoryClient
+
+async def main():
+    async with CloudflareMemoryClient(
+        account_id=os.environ["CF_ACCOUNT_ID"],
+        api_token=os.environ["MCP_CLOUDFLARE_API_KEY"],
+        namespace="hermes",
+        profile="default",
+    ) as client:
+        for soul_path in glob.glob(os.path.expanduser("~/.hermes/profiles/*/SOUL.md")):
+            profile_name = soul_path.split("/")[-2]
+            with open(soul_path, "r") as f:
+                content = f.read()
+            await client.remember(f"[SOUL.md:{profile_name}] {content[:2000]}")
+            print(f"Stored SOUL.md for {profile_name}")
+
+asyncio.run(main())
+PYEOF
+```
+
+### Multi-Device Access
+CF memory is accessible from any device with:
+- API token (MCP_CLOUDFLARE_API_KEY)
+- Account ID (CF_ACCOUNT_ID)
+
+Configure each device's agents with the same credentials.
+
+### Export Data
+```bash
+python3 << 'PYEOF'
+import asyncio, os, json
+from cloudflare_memory import CloudflareMemoryClient
+
+async def main():
+    async with CloudflareMemoryClient(
+        account_id=os.environ["CF_ACCOUNT_ID"],
+        api_token=os.environ["MCP_CLOUDFLARE_API_KEY"],
+        namespace="hermes",
+        profile="default",
+    ) as client:
+        entries = await client.list_memories(per_page=100)
+        export = [{"id": e.id, "type": e.type, "summary": e.summary} for e in entries]
+        with open("cf-memory-export.json", "w") as f:
+            json.dump(export, f, indent=2)
+        print(f"Exported {len(entries)} memories")
+
+asyncio.run(main())
+PYEOF
+```
