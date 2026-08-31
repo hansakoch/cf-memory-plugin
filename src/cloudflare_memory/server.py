@@ -16,7 +16,7 @@ import json
 import os
 from typing import Any
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.fastmcp import FastMCP as MCPServer
 
 from cloudflare_memory.client import CloudflareMemoryClient
 
