@@ -100,7 +100,23 @@ def _add_scope(p: argparse.ArgumentParser) -> None:
 
 def main() -> None:
     parser = build_parser()
-    args = parser.parse_args()
+
+    # Handle agents calling `cf-memory <session_id>` or `cf-memory <query>`
+    # by treating unknown positional args as a recall query.
+    # This prevents "invalid choice" errors when agents pass session IDs
+    # or free-text queries as the first argument.
+    try:
+        args = parser.parse_args()
+    except SystemExit as e:
+        if e.code == 2:  # argparse error
+            import sys
+            # Check if the first arg looks like a session ID or query
+            if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+                fallback_arg = sys.argv[1]
+                # Treat as a recall query
+                asyncio.run(_recall_fallback(fallback_arg))
+                return
+        raise
 
     if args.command == "serve":
         from cloudflare_memory.server import serve
@@ -209,6 +225,31 @@ async def _test(namespace: str | None, profile: str | None) -> None:
             print(f"✗ Summary failed: {e}")
 
     print("\nAll checks passed.")
+
+
+async def _recall_fallback(query: str) -> None:
+    """Fallback: treat unknown CLI args as a recall query.
+
+    Agents sometimes call `cf-memory <session_id>` or `cf-memory <text>`
+    instead of `cf-memory recall <query>`. Instead of failing with
+    'invalid choice', we treat it as a recall and return the answer.
+    """
+    from cloudflare_memory.client import MemoryAPIError
+
+    client = _make_client()
+    async with client:
+        try:
+            result = await client.recall(query)
+            if result.answer:
+                print(result.answer)
+            else:
+                print(f"No memories found for: {query}")
+        except MemoryAPIError as e:
+            print(f"Recall failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
 
 async def _doctor(namespace: str | None, profile: str | None) -> None:
