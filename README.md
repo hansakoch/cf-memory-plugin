@@ -611,3 +611,14 @@ This repo is not affiliated with Cloudflare or Nous Research.
 ## License
 
 [MIT](LICENSE)
+
+## MCP Compatibility
+
+### mcp 1.26.0+
+If you get `ModuleNotFoundError: No module named 'mcp.server.mcpserver'`, the fix is already applied in this repo. The server uses `FastMCP` instead of `MCPServer`.
+
+### Older mcp versions
+If you have mcp < 1.0, you may need to update:
+```bash
+pip install --upgrade mcp
+```
