@@ -105,18 +105,16 @@ def main() -> None:
     # by treating unknown positional args as a recall query.
     # This prevents "invalid choice" errors when agents pass session IDs
     # or free-text queries as the first argument.
-    try:
-        args = parser.parse_args()
-    except SystemExit as e:
-        if e.code == 2:  # argparse error
-            import sys
-            # Check if the first arg looks like a session ID or query
-            if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
-                fallback_arg = sys.argv[1]
-                # Treat as a recall query
-                asyncio.run(_recall_fallback(fallback_arg))
-                return
-        raise
+    import sys
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-") and sys.argv[1] not in (
+        "serve", "a2a", "test", "doctor", "card", "list", "get", "delete",
+        "ingest", "summary", "namespaces", "create-ns", "delete-ns",
+    ):
+        # Unknown subcommand — treat as recall query
+        asyncio.run(_recall_fallback(" ".join(sys.argv[1:])))
+        return
+
+    args = parser.parse_args()
 
     if args.command == "serve":
         from cloudflare_memory.server import serve
