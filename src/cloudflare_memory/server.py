@@ -152,8 +152,8 @@ _ADMIN_FUNCS = (
 )
 
 
-def create_server(*, full: bool = False) -> MCPServer:
-    """Build an MCP server. Default: remember + recall only."""
+def create_server(*, full: bool = True) -> MCPServer:
+    """Build an MCP server. Default: full surface (all tools)."""
     server = MCPServer(name="cloudflare-memory", instructions=_INSTRUCTIONS)
     # structured_output=False omits output_schema from the advertised tool list
     server.add_tool(remember, structured_output=False)
