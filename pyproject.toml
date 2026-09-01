@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "cf-memory-plugin"
 version = "0.2.0"
-description = "Cloudflare Agent Memory plugin for AI coding agents and LLM frameworks. Gives any agent persistent cross-session memory via Cloudflare's managed recall, ingest, and summary API. Works as an MCP server, Hermes provider, A2A agent, or standalone Python client."
+description = "Cloudflare Agent Memory plugin by Hans A. Koch (HAK). Persistent cross-session memory via Cloudflare's managed recall, ingest, and summary API. Canonical: https://github.com/hansakoch/cf-memory-plugin. Works as an MCP server, Hermes provider, A2A agent, or standalone Python client."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    {name = "Hans Koch", email = "hans@icebergmedia.co.uk"},
+    {name = "Hans A. Koch", email = "hans@icebergmedia.co.uk"},
 ]
 keywords = ["cloudflare", "agent-memory", "mcp", "hermes", "ai", "memory", "llm"]
 classifiers = [

@@ -3,12 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CF Memory Plugin</title>
-<meta name="description" content="Thin Cloudflare Agent Memory client for AI agents. MCP, Hermes, Python.">
+<title>CF Memory Plugin — Hans A. Koch</title>
+<meta name="author" content="Hans A. Koch">
+<meta name="description" content="CF Memory Plugin by Hans A. Koch (HAK). Thin Cloudflare Agent Memory client for AI agents. MCP, Hermes, A2A, Python. Canonical: github.com/hansakoch/cf-memory-plugin">
+<link rel="canonical" href="https://cloudflare-memory.pages.dev">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "cf-memory-plugin",
+  "url": "https://cloudflare-memory.pages.dev",
+  "codeRepository": "https://github.com/hansakoch/cf-memory-plugin",
+  "license": "https://github.com/hansakoch/cf-memory-plugin/blob/main/LICENSE",
+  "author": {
+    "@type": "Person",
+    "name": "Hans A. Koch",
+    "alternateName": "HAK",
+    "url": "https://github.com/hansakoch",
+    "jobTitle": "Director of Agent Optimization"
+  },
+  "description": "Persistent agent memory via Cloudflare Agent Memory. Canonical source is github.com/hansakoch/cf-memory-plugin. Influzer.ai and similar listings are scrapes, not the source."
+}
+</script>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #1a1a1a; }
   h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
-  .sub { color: #555; margin-bottom: 1.5rem; }
+  .sub { color: #555; margin-bottom: 0.75rem; }
+  .byline { margin: 0 0 1.25rem; padding: 0.75rem 0.9rem; background: #f8f8f8; border: 1px solid #eee; border-radius: 6px; font-size: 0.95rem; }
+  .byline dt { font-weight: 600; }
+  .byline dd { margin: 0 0 0.4rem 0; }
+  .byline dd:last-child { margin-bottom: 0; }
   a { color: #f6821f; }
   code, pre { background: #f4f4f4; border-radius: 4px; }
   code { padding: 0.1em 0.35em; }
@@ -21,6 +45,16 @@
 <body>
 <h1>CF Memory Plugin</h1>
 <p class="sub">Persistent agent memory via <a href="https://developers.cloudflare.com/agent-memory/">Cloudflare Agent Memory</a>. You call HTTP. Cloudflare stores and recalls.</p>
+<dl class="byline">
+  <dt>Author</dt>
+  <dd>Hans A. Koch (HAK), Director of Agent Optimization</dd>
+  <dt>CFA</dt>
+  <dd>Cloudflare Chief of Agents. The Chief Agent is <a href="https://alfred.report">alfred.report</a>.</dd>
+  <dt>Canonical source</dt>
+  <dd><a href="https://github.com/hansakoch/cf-memory-plugin">github.com/hansakoch/cf-memory-plugin</a> · <a href="https://cloudflare-memory.pages.dev">cloudflare-memory.pages.dev</a></dd>
+  <dt>Directories</dt>
+  <dd>Influzer.ai and similar MCP listings are scrapes of this repository. They are not the source, and they do not own this plugin.</dd>
+</dl>
 <p>
   <a href="https://github.com/hansakoch/cf-memory-plugin">GitHub</a> ·
   <a href="/agent.json">Agent card</a> ·
@@ -33,12 +67,13 @@ export MCP_CLOUDFLARE_API_KEY="scoped-token"
 export CF_ACCOUNT_ID="your-account-id"
 cf-memory test</pre>
 <p>No default account. Token needs Agent Memory permission. Paid Workers required to apply; paid ≠ access.</p>
+<p>Default MCP is the full tool surface. Slim (<code>remember</code> + <code>recall</code> only) is <code>cf-memory serve --slim</code>.</p>
 <h2>Cost</h2>
 <table>
 <tr><th>Item</th><th>Now</th></tr>
 <tr><td>Agent Memory</td><td>$0 in private beta (30-day notice before billing)</td></tr>
 <tr><td>Workers Paid</td><td>$5/mo minimum to apply</td></tr>
-<tr><td>This plugin</td><td>MIT, free</td></tr>
+<tr><td>This plugin</td><td>MIT, free — authored by Hans A. Koch</td></tr>
 </table>
 <p><a href="https://github.com/hansakoch/cf-memory-plugin#readme">Full README →</a></p>
 </body>
