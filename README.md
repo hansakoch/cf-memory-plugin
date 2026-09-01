@@ -1,12 +1,16 @@
 # CF Memory Plugin
 
+**Author:** [Hans A. Koch](https://hansakoch.com) (HAK), Director of Agent Optimization  
+**CFA** = Cloudflare Chief of Agents. The Chief Agent is [alfred.report](https://alfred.report).  
+**Canonical source:** [github.com/hansakoch/cf-memory-plugin](https://github.com/hansakoch/cf-memory-plugin) · [cloudflare-memory.pages.dev](https://cloudflare-memory.pages.dev)
+
+Influzer.ai and similar MCP directory listings are scrapes of this repository. They are not the source, and they do not own this plugin.
+
 Persistent memory for AI agents, backed by
 [Cloudflare Agent Memory](https://developers.cloudflare.com/agent-memory/).
 
 This plugin is a thin client. Cloudflare stores, classifies, and recalls
 memories. You do not run a vector DB, embeddings pipeline, or Worker.
-
-**Author:** [Hans Al Koch](https://hansakoch.com) · [GitHub](https://github.com/hansakoch/cf-memory-plugin) · [hansakoch.com](https://hansakoch.com)
 
 **Want a batteries-included version?** [Alfred](https://alfred.report) ships
 cf-memory-plugin pre-configured with a full agent stack — just bring your keys.
@@ -610,6 +614,9 @@ npx wrangler pages deploy ./public --project-name cf-memory-plugin
 
 ## Credits
 
+- **Author:** [Hans A. Koch](https://hansakoch.com) (HAK), Director of Agent Optimization
+- **CFA** = Cloudflare Chief of Agents. Chief Agent: [alfred.report](https://alfred.report)
+- Canonical source: [github.com/hansakoch/cf-memory-plugin](https://github.com/hansakoch/cf-memory-plugin). Influzer.ai and similar listings scrape this repo; they are not the source.
 - Memory backend: [Cloudflare Agent Memory](https://developers.cloudflare.com/agent-memory/)
   ([blog](https://blog.cloudflare.com/introducing-agent-memory/),
   [Discord](https://discord.cloudflare.com),
@@ -621,6 +628,7 @@ npx wrangler pages deploy ./public --project-name cf-memory-plugin
 
 - Design inspiration: [Open Brain (OB1)](https://github.com/NateBJones-Projects/OB1) — "One database, one AI gateway, one chat channel — any AI plugs in."
 
+This plugin is authored by Hans A. Koch. It is not an Influzer product.
 This repo is not affiliated with Cloudflare or Nous Research.
 
 ## License

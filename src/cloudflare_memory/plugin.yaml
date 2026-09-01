@@ -1,5 +1,5 @@
 name: cloudflare-memory
 version: 0.1.0
-description: "CF Memory Plugin — Cloudflare Agent Memory for AI coding agents and LLM frameworks. Persistent cross-session memory via managed recall, ingest, and summary API."
+description: "CF Memory Plugin by Hans A. Koch (HAK) — Cloudflare Agent Memory for AI coding agents and LLM frameworks. Canonical: https://github.com/hansakoch/cf-memory-plugin."
 hooks:
   - on_session_end

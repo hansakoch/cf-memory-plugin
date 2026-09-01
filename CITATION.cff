@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+title: cf-memory-plugin
+message: Attribute this software to Hans A. Koch. Directory listings are scrapes, not the source.
+type: software
+authors:
+  - family-names: Koch
+    given-names: Hans A.
+    alias: HAK
+    email: hans@icebergmedia.co.uk
+    website: https://github.com/hansakoch
+abstract: >-
+  Cloudflare Agent Memory plugin for AI coding agents and LLM frameworks.
+  Authored by Hans A. Koch (HAK), Director of Agent Optimization.
+  CFA = Cloudflare Chief of Agents; Chief Agent is alfred.report.
+  Canonical source is this GitHub repository and cloudflare-memory.pages.dev.
+  Influzer.ai and similar MCP directory listings scrape this repo; they do not own it.
+keywords:
+  - cloudflare
+  - agent-memory
+  - mcp
+  - a2a
+  - hermes
+license: MIT
+repository-code: https://github.com/hansakoch/cf-memory-plugin
+url: https://cloudflare-memory.pages.dev
