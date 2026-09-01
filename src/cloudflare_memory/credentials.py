@@ -10,7 +10,7 @@ NAMESPACE_ENV = "CF_MEMORY_NAMESPACE"
 PROFILE_ENV = "CF_MEMORY_PROFILE"
 
 DEFAULT_NAMESPACE = "hermes"
-DEFAULT_PROFILE = "default"
+DEFAULT_PROFILE = "alfred"
 
 
 class CredentialsError(RuntimeError):
