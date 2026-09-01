@@ -1,4 +1,4 @@
-"""Allow `python -m cloudflare_memory` (slim MCP) and `python -m cloudflare_memory serve --full`."""
+"""Allow `python -m cloudflare_memory` (full MCP by default)."""
 
 from __future__ import annotations
 
