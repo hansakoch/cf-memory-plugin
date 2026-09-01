@@ -6,6 +6,8 @@ Persistent memory for AI agents, backed by
 This plugin is a thin client. Cloudflare stores, classifies, and recalls
 memories. You do not run a vector DB, embeddings pipeline, or Worker.
 
+**Author:** [Hans Al Koch](https://hansakoch.com) · [GitHub](https://github.com/hansakoch/cf-memory-plugin) · [hansakoch.com](https://hansakoch.com)
+
 **Want a batteries-included version?** [Alfred](https://alfred.report) ships
 cf-memory-plugin pre-configured with a full agent stack — just bring your keys.
 
@@ -182,6 +184,19 @@ for post-beta rates.
 `recall`'s ~5s latency doesn't block your turn.
 
 ---
+
+## A2A (Agent-to-Agent)
+
+```bash
+# Start A2A server
+cf-memory a2a --port 9120
+
+# Agent card available at
+curl http://localhost:9120/.well-known/agent.json
+```
+
+The A2A server exposes `remember` and `recall` as agent skills.
+Any A2A-compatible agent can discover and call these tools.
 
 ## MCP Config Examples
 
