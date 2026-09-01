@@ -54,7 +54,7 @@ def _fake_client() -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_slim_server_has_exactly_two_tools():
-    tools = await create_server().list_tools()
+    tools = await create_server(full=False).list_tools()
     names = [t.name for t in tools]
     assert names == list(SLIM_TOOL_NAMES)
     assert ADMIN.isdisjoint(names)
@@ -74,14 +74,14 @@ async def test_import_does_not_register_tools_on_a_global_server():
     assert not hasattr(mod, "server")
     # Factories are independent: full does not leak into a later slim server
     full = create_server(full=True)
-    slim = create_server()
+    slim = create_server(full=False)
     assert {t.name for t in await full.list_tools()} == SLIM | ADMIN
     assert {t.name for t in await slim.list_tools()} == SLIM
 
 
 @pytest.mark.asyncio
 async def test_slim_schemas_are_tiny():
-    tools = {t.name: t for t in await create_server().list_tools()}
+    tools = {t.name: t for t in await create_server(full=False).list_tools()}
     remember = tools["remember"]
     recall = tools["recall"]
 
@@ -143,7 +143,7 @@ async def test_recall_returns_answer_only_and_hardcodes_low_short():
 @pytest.mark.asyncio
 async def test_slim_rejects_admin_tool_calls():
     with pytest.raises(Exception):
-        await create_server().call_tool("list_memories", {})
+        await create_server(full=False).call_tool("list_memories", {})
 
 
 @pytest.mark.asyncio
@@ -172,10 +172,12 @@ async def test_full_admin_tools_callable():
     assert ns_deleted == {}
 
 
-def test_serve_parser_full_flag():
+def test_serve_parser_slim_flag():
     parser = build_parser()
-    slim = parser.parse_args(["serve"])
-    assert slim.full is False
+    default = parser.parse_args(["serve"])
+    assert default.slim is False
+    slim = parser.parse_args(["serve", "--slim"])
+    assert slim.slim is True
     full = parser.parse_args(["serve", "--full"])
     assert full.full is True
 

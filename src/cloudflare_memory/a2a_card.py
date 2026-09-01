@@ -6,11 +6,11 @@ can discover and call for memory operations.
 
 AGENT_CARD = {
     "name": "cloudflare-memory",
-    "description": "CF Memory Plugin by Hans A. Koch (HAK) — persistent cross-session memory for AI agents via Cloudflare Agent Memory. Canonical: https://github.com/hansakoch/cf-memory-plugin. Supports remember, recall, ingest, summary.",
+    "description": "CF Memory Plugin by Hans Al Koch — persistent cross-session memory for AI agents via Cloudflare Agent Memory. Canonical: https://github.com/hansakoch/cf-memory-plugin. Supports remember, recall, ingest, summary.",
     "url": "http://localhost:9120",
     "version": "0.1.0",
     "provider": {
-        "organization": "Hans A. Koch",
+        "organization": "Hans Al Koch",
         "url": "https://github.com/hansakoch/cf-memory-plugin",
     },
     "documentationUrl": "https://github.com/hansakoch/cf-memory-plugin",

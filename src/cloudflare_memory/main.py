@@ -20,15 +20,20 @@ def build_parser() -> argparse.ArgumentParser:
     # ── serve (MCP server) ────────────────────────────────────────────
     p_serve = sub.add_parser(
         "serve",
-        help="Start MCP server (stdio/SSE). Default: remember + recall only",
+        help="Start MCP server (stdio/SSE). Default: full tool surface",
     )
     p_serve.add_argument("--namespace", default="hermes", help="Namespace name")
     p_serve.add_argument("--profile", default="default", help="Profile name")
     p_serve.add_argument("--transport", default="stdio", choices=["stdio", "sse"])
     p_serve.add_argument(
+        "--slim",
+        action="store_true",
+        help="Expose only remember + recall",
+    )
+    p_serve.add_argument(
         "--full",
         action="store_true",
-        help="Expose admin tools (list/get/delete/ingest/summary/namespaces) for debugging",
+        help="Expose all tools (default)",
     )
 
     # ── a2a (A2A agent server) ────────────────────────────────────────
@@ -123,7 +128,7 @@ def main() -> None:
             namespace=args.namespace,
             profile=args.profile,
             transport=args.transport,
-            full=args.full,
+            full=not args.slim,
         )
 
     elif args.command == "a2a":

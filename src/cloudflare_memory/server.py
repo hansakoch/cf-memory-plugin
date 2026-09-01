@@ -1,12 +1,9 @@
 """MCP server for Cloudflare Agent Memory.
 
-Default surface is two tiny tools (remember, recall). Harnesses inject every
-tool schema every turn, so extra tools and long descriptions are pure cost.
+Default surface is the full tool set. Pass --slim for remember + recall only.
+Harnesses inject every tool schema every turn, so slim is the low-token option.
 
-Admin tools (list/get/delete/ingest/summary/namespaces) stay on the Python
-client and CLI. Pass --full only for debugging.
-
-Run: cf-memory serve [--namespace NAME] [--profile NAME] [--full]
+Run: cf-memory serve [--namespace NAME] [--profile NAME] [--slim]
 """
 
 from __future__ import annotations
@@ -207,9 +204,9 @@ def serve(
     namespace: str = "hermes",
     profile: str = "default",
     transport: str = "stdio",
-    full: bool = False,
+    full: bool = True,
 ) -> None:
-    """Start the MCP server."""
+    """Start the MCP server. Default: full surface."""
     _preflight_check()
     os.environ.setdefault("CF_MEMORY_NAMESPACE", namespace)
     os.environ.setdefault("CF_MEMORY_PROFILE", profile)

@@ -1,17 +1,16 @@
 {
   "name": "cf-memory-plugin",
-  "description": "CF Memory Plugin by Hans A. Koch (HAK) — persistent cross-session memory for AI agents via Cloudflare Agent Memory. Canonical: https://github.com/hansakoch/cf-memory-plugin",
+  "description": "CF Memory Plugin by Hans Al Koch — persistent cross-session memory for AI agents via Cloudflare Agent Memory. Canonical: https://github.com/hansakoch/cf-memory-plugin",
   "url": "https://cloudflare-memory.pages.dev",
   "version": "0.1.0",
   "provider": {
-    "organization": "Hans A. Koch",
+    "organization": "Hans Al Koch",
     "url": "https://github.com/hansakoch/cf-memory-plugin"
   },
   "documentationUrl": "https://github.com/hansakoch/cf-memory-plugin",
   "author": {
-    "name": "Hans A. Koch",
+    "name": "Hans Al Koch",
     "alias": "HAK",
-    "title": "Director of Agent Optimization",
     "url": "https://github.com/hansakoch"
   },
   "capabilities": {

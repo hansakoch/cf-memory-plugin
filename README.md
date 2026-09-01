@@ -1,19 +1,15 @@
 # CF Memory Plugin
 
-**Author:** [Hans A. Koch](https://hansakoch.com) (HAK), Director of Agent Optimization  
-**CFA** = Cloudflare Chief of Agents. The Chief Agent is [alfred.report](https://alfred.report).  
+**Contributor:** [Hans Al Koch](https://github.com/hansakoch) (HAK)  
 **Canonical source:** [github.com/hansakoch/cf-memory-plugin](https://github.com/hansakoch/cf-memory-plugin) · [cloudflare-memory.pages.dev](https://cloudflare-memory.pages.dev)
 
-Influzer.ai and similar MCP directory listings are scrapes of this repository. They are not the source, and they do not own this plugin.
+Listings that scrape this repository are not the source.
 
 Persistent memory for AI agents, backed by
 [Cloudflare Agent Memory](https://developers.cloudflare.com/agent-memory/).
 
 This plugin is a thin client. Cloudflare stores, classifies, and recalls
 memories. You do not run a vector DB, embeddings pipeline, or Worker.
-
-**Want a batteries-included version?** [Alfred](https://alfred.report) ships
-cf-memory-plugin pre-configured with a full agent stack — just bring your keys.
 
 **Private beta.** Expect 2-4 weeks for access after signing up. Paid Workers is required. Paid Workers alone is not enough —
 you still need Agent Memory entitlement.
@@ -133,9 +129,9 @@ secrets, passwords, or customer PII you aren't allowed to store.
 |---|---|---|
 | `remember` | Store one fact / instruction / event | yes |
 | `recall` | Search + synthesize an answer (~5s) | yes |
-| `ingest` | Extract memories from a conversation (writes land 3–8s later) | CLI / `--full` only |
-| `summary` | Markdown profile of what is stored | CLI / `--full` only |
-| `list` / `get` / `delete` | Inspect or remove entries | CLI / `--full` only |
+| `ingest` | Extract memories from a conversation (writes land 3–8s later) | yes (omit with `--slim`) |
+| `summary` | Markdown profile of what is stored | yes (omit with `--slim`) |
+| `list` / `get` / `delete` | Inspect or remove entries | yes (omit with `--slim`) |
 
 ---
 
@@ -145,22 +141,17 @@ Harnesses (Grok CLI, Grok Bot, Claude, Codex, Cursor) inject **every** MCP
 tool schema into **every** turn, even if unused. Tool count and description
 size are the cost.
 
-`cf-memory serve` and `python -m cloudflare_memory` advertise **two** tools:
+`cf-memory serve` and `python -m cloudflare_memory` advertise the **full** tool
+surface by default. Use `cf-memory serve --slim` for remember + recall only:
 
-| Tool | Schema | Returns |
-|---|---|---|
-| `remember` | `content: str` | compact `{"id","type"}` |
-| `recall` | `query: str` | short synthesized answer only |
+| Tool | Schema | Returns | Default | `--slim` |
+|---|---|---|---|---|
+| `remember` | `content: str` | compact `{"id","type"}` | yes | yes |
+| `recall` | `query: str` | short synthesized answer only | yes | yes |
+| admin tools | list/get/delete/ingest/summary/namespaces | varies | yes | no |
 
 `thinking_level` and `response_length` are hardcoded to `low` / `short`. They
 are not MCP parameters.
-
-**Not registered on the default MCP server:** `list_memories`, `get_memory`,
-`delete_memory`, `ingest`, `summary`, `list_namespaces`, `create_namespace`,
-`delete_namespace`. Use the Python client or CLI. `ingest` and `summary` are
-CLI-only because those schemas blow context.
-
-Debug with `cf-memory serve --full` (old admin tool set).
 
 Hermes does **not** use this MCP server. It uses the native memory provider
 (background ingest, non-blocking prefetch, **zero MCP tools**).
@@ -205,8 +196,8 @@ Any A2A-compatible agent can discover and call these tools.
 ## MCP Config Examples
 
 Same MCP block everywhere. Only the config file path changes.
-`args: ["serve"]` is the slim default (two tools). Use `["serve", "--full"]`
-only when debugging.
+`args: ["serve"]` is the full default (all tools). Use `["serve", "--slim"]`
+for remember + recall only.
 
 ### Generic MCP block
 
@@ -385,8 +376,8 @@ asyncio.run(main())
 ```bash
 cf-memory doctor                        # full diagnostic (run this first!)
 cf-memory test                          # quick connectivity check
-cf-memory serve                         # MCP (stdio): remember + recall only
-cf-memory serve --full                  # MCP with admin tools (debug)
+cf-memory serve                         # MCP (stdio): full tool surface
+cf-memory serve --slim                  # MCP: remember + recall only
 cf-memory list                          # list memories (CLI-only)
 cf-memory get MEMORY_ID                 # get one memory (CLI-only)
 cf-memory delete MEMORY_ID              # delete one memory (CLI-only)
@@ -508,8 +499,8 @@ The package isn't on your `PATH`. Try:
 pip install --force-reinstall git+https://github.com/hansakoch/cf-memory-plugin.git
 ```
 
-Or run it as a module: `python -m cloudflare_memory` (slim MCP) or
-`python -m cloudflare_memory serve --full`.
+Or run it as a module: `python -m cloudflare_memory` (full MCP) or
+`python -m cloudflare_memory serve --slim`.
 
 ### MCP client can't connect
 
@@ -604,7 +595,7 @@ The plugin itself is not a Worker. The public page at
 # token needs Pages:Edit on the same account
 export CLOUDFLARE_API_TOKEN=...
 export CLOUDFLARE_ACCOUNT_ID=...
-npx wrangler pages deploy ./public --project-name cf-memory-plugin
+npx wrangler pages deploy ./public --project-name cloudflare-memory --commit-dirty=true
 ```
 
 [Pages docs](https://developers.cloudflare.com/pages/get-started/guide/) ·
@@ -614,9 +605,8 @@ npx wrangler pages deploy ./public --project-name cf-memory-plugin
 
 ## Credits
 
-- **Author:** [Hans A. Koch](https://hansakoch.com) (HAK), Director of Agent Optimization
-- **CFA** = Cloudflare Chief of Agents. Chief Agent: [alfred.report](https://alfred.report)
-- Canonical source: [github.com/hansakoch/cf-memory-plugin](https://github.com/hansakoch/cf-memory-plugin). Influzer.ai and similar listings scrape this repo; they are not the source.
+- **Contributor:** [Hans Al Koch](https://github.com/hansakoch) (HAK)
+- Canonical source: [github.com/hansakoch/cf-memory-plugin](https://github.com/hansakoch/cf-memory-plugin). Listings that scrape this repository are not the source.
 - Memory backend: [Cloudflare Agent Memory](https://developers.cloudflare.com/agent-memory/)
   ([blog](https://blog.cloudflare.com/introducing-agent-memory/),
   [Discord](https://discord.cloudflare.com),
@@ -624,11 +614,8 @@ npx wrangler pages deploy ./public --project-name cf-memory-plugin
 - Protocol: [Model Context Protocol](https://modelcontextprotocol.io)
 - Hermes provider contract: [Nous Research Hermes Agent](https://hermes-agent.nousresearch.com)
 - HTTP client: [httpx](https://www.python-httpx.org/)
-- Batteries-included agent: [Alfred](https://alfred.report)
-
 - Design inspiration: [Open Brain (OB1)](https://github.com/NateBJones-Projects/OB1) — "One database, one AI gateway, one chat channel — any AI plugs in."
 
-This plugin is authored by Hans A. Koch. It is not an Influzer product.
 This repo is not affiliated with Cloudflare or Nous Research.
 
 ## License

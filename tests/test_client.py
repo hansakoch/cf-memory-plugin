@@ -142,13 +142,13 @@ async def test_delete_memory(client):
 @respx.mock
 async def test_recall(client):
     respx.post(f"{PROF}/recall").mock(return_value=_ok({
-        "answer": "Iceberg Media",
+        "answer": "example answer",
         "candidates": [{"id": "c1", "type": "fact", "summary": "s"}],
     }))
     async with client:
         result = await client.recall("What agency?")
     assert isinstance(result, RecallResult)
-    assert result.answer == "Iceberg Media"
+    assert result.answer == "example answer"
     assert len(result.candidates) == 1
 
 

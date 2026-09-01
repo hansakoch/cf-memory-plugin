@@ -2,8 +2,9 @@
 
 ## Report a vulnerability
 
-Email hans@icebergmedia.co.uk. Do not open a public issue for token leaks or
-remote-code bugs.
+Report privately via GitHub Security Advisories:
+https://github.com/hansakoch/cf-memory-plugin/security/advisories
+Do not open a public issue for token leaks or remote-code bugs.
 
 ## What this plugin stores
 
