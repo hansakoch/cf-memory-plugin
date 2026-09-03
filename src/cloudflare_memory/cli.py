@@ -165,21 +165,36 @@ def cmd_export(args):
 
     async def _run():
         async with client:
-            all_memories = []
+            all_entries = []
+            seen_ids = set()
             page = 1
             while True:
                 entries = await client.list_memories(page=page, per_page=100)
                 if not entries:
                     break
-                # Get content for each memory
+                new_count = 0
                 for entry in entries:
+                    if entry.id in seen_ids:
+                        continue
+                    seen_ids.add(entry.id)
                     if type_filter and entry.type != type_filter:
                         continue
                     if session_filter and entry.session_id != session_filter:
                         continue
-                    full = await client.get_memory(entry.id)
-                    all_memories.append(full)
+                    all_entries.append(entry)
+                    new_count += 1
+                if new_count == 0:
+                    break
                 page += 1
+
+            # Only fetch content if requested (slow)
+            if args.with_content:
+                all_memories = []
+                for e in all_entries:
+                    full = await client.get_memory(e.id)
+                    all_memories.append(full)
+            else:
+                all_memories = all_entries
 
             if fmt == "json":
                 data = [
@@ -285,6 +300,7 @@ def register_cli(subparser) -> None:
     p_export.add_argument("--output", "-o", help="Output file path (stdout if omitted)")
     p_export.add_argument("--type", help="Filter by type")
     p_export.add_argument("--session", help="Filter by session ID")
+    p_export.add_argument("--with-content", action="store_true", help="Fetch full content (slow)")
 
     p_ns = subs.add_parser("namespaces", help="List all namespaces")
 

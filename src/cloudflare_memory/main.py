@@ -70,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--output", "-o", help="Output file path (stdout if omitted)")
     p_export.add_argument("--type", default="", help="Filter by type")
     p_export.add_argument("--session", default="", help="Filter by session ID")
+    p_export.add_argument("--with-content", action="store_true", help="Fetch full content (slow: ~1.4s per memory)")
 
     p_get = sub.add_parser("get", help="Get one memory by id (CLI-only)")
     _add_scope(p_get)
@@ -451,31 +452,52 @@ async def _cmd_list(args) -> None:
 async def _cmd_export(args) -> None:
     client = _make_client(args.namespace, args.profile)
     async with client:
-        all_memories = []
+        all_entries = []
+        seen_ids = set()
         page = 1
         while True:
             entries = await client.list_memories(page=page, per_page=100)
             if not entries:
                 break
+            new_count = 0
             for entry in entries:
+                if entry.id in seen_ids:
+                    continue
+                seen_ids.add(entry.id)
                 if args.type and entry.type != args.type:
                     continue
                 if args.session and entry.session_id != args.session:
                     continue
-                full = await client.get_memory(entry.id)
-                all_memories.append(full)
+                all_entries.append(entry)
+                new_count += 1
+            # API ignores page param — detect duplicate pages
+            if new_count == 0:
+                break
             page += 1
+
+        # Only fetch content if requested (slow: ~1.4s per memory)
+        if args.with_content:
+            import asyncio as _aio
+            async def _fetch(e):
+                try:
+                    return await client.get_memory(e.id)
+                except Exception:
+                    return e
+            all_memories = await _aio.gather(*[_fetch(e) for e in all_entries])
+        else:
+            all_memories = all_entries
 
         fmt = args.format
         if fmt == "json":
             data = [
-                {"id": m.id, "type": m.type, "summary": m.summary, "content": m.content,
-                 "session_id": m.session_id, "created_at": m.created_at, "updated_at": m.updated_at}
+                {"id": m.id, "type": m.type, "summary": m.summary, "content": getattr(m, 'content', None),
+                 "session_id": m.session_id, "created_at": m.created_at, "updated_at": getattr(m, 'updated_at', None)}
                 for m in all_memories
             ]
             out = json.dumps(data, indent=2, ensure_ascii=False)
         elif fmt == "jsonl":
-            lines = [json.dumps({"id": m.id, "type": m.type, "summary": m.summary, "content": m.content,
+            lines = [json.dumps({"id": m.id, "type": m.type, "summary": m.summary,
+                                  "content": getattr(m, 'content', None),
                                   "session_id": m.session_id, "created_at": m.created_at}, ensure_ascii=False)
                      for m in all_memories]
             out = "\n".join(lines)
