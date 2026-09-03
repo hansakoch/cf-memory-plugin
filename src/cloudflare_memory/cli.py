@@ -155,6 +155,119 @@ def cmd_delete_ns(args):
     asyncio.run(_run())
 
 
+def cmd_export(args):
+    """Export all memories to file."""
+    client, ns, prof = _get_client()
+    fmt = args.format
+    output = args.output
+    type_filter = args.type
+    session_filter = args.session
+
+    async def _run():
+        async with client:
+            all_memories = []
+            page = 1
+            while True:
+                entries = await client.list_memories(page=page, per_page=100)
+                if not entries:
+                    break
+                # Get content for each memory
+                for entry in entries:
+                    if type_filter and entry.type != type_filter:
+                        continue
+                    if session_filter and entry.session_id != session_filter:
+                        continue
+                    full = await client.get_memory(entry.id)
+                    all_memories.append(full)
+                page += 1
+
+            if fmt == "json":
+                data = [
+                    {
+                        "id": m.id,
+                        "type": m.type,
+                        "summary": m.summary,
+                        "content": m.content,
+                        "session_id": m.session_id,
+                        "created_at": m.created_at,
+                        "updated_at": m.updated_at,
+                    }
+                    for m in all_memories
+                ]
+                out = json.dumps(data, indent=2, ensure_ascii=False)
+            elif fmt == "jsonl":
+                lines = []
+                for m in all_memories:
+                    lines.append(json.dumps({
+                        "id": m.id,
+                        "type": m.type,
+                        "summary": m.summary,
+                        "content": m.content,
+                        "session_id": m.session_id,
+                        "created_at": m.created_at,
+                    }, ensure_ascii=False))
+                out = "\n".join(lines)
+            elif fmt == "markdown":
+                lines = [f"# Memory Export — {ns}/{prof}", f"\nExported: {len(all_memories)} memories\n"]
+                for m in all_memories:
+                    lines.append(f"## [{m.type}] {m.summary}")
+                    lines.append(f"- **ID**: `{m.id}`")
+                    if m.session_id:
+                        lines.append(f"- **Session**: `{m.session_id}`")
+                    if m.created_at:
+                        lines.append(f"- **Created**: {m.created_at}")
+                    if m.content:
+                        lines.append(f"\n{m.content}\n")
+                    lines.append("---\n")
+                out = "\n".join(lines)
+            else:
+                out = json.dumps([{"error": f"Unknown format: {fmt}"}], indent=2)
+
+            if output:
+                Path(output).write_text(out, encoding="utf-8")
+                print(f"Exported {len(all_memories)} memories to {output} ({fmt})")
+            else:
+                print(out)
+
+    asyncio.run(_run())
+
+
+def cmd_list(args):
+    """List memories with optional filtering."""
+    client, ns, prof = _get_client()
+    type_filter = args.type
+    session_filter = args.session
+    limit = args.limit
+
+    async def _run():
+        async with client:
+            all_entries = []
+            page = 1
+            while len(all_entries) < limit:
+                entries = await client.list_memories(page=page, per_page=min(100, limit - len(all_entries)))
+                if not entries:
+                    break
+                for entry in entries:
+                    if type_filter and entry.type != type_filter:
+                        continue
+                    if session_filter and entry.session_id != session_filter:
+                        continue
+                    all_entries.append(entry)
+                    if len(all_entries) >= limit:
+                        break
+                page += 1
+
+            for m in all_entries[:limit]:
+                sid = f" [{m.session_id}]" if m.session_id else ""
+                ts = f" ({m.created_at[:10]})" if m.created_at else ""
+                print(f"  {m.id}  {m.type:10}  {m.summary[:60]}{sid}{ts}")
+
+            if not all_entries:
+                print("  (no memories)")
+
+    asyncio.run(_run())
+
+
 def register_cli(subparser) -> None:
     """Build the hermes cloudflare-memory argparse tree."""
     subs = subparser.add_subparsers(dest="cf_memory_cmd")
@@ -162,7 +275,18 @@ def register_cli(subparser) -> None:
     subs.add_parser("status", help="Show provider status and connection info")
     subs.add_parser("test", help="Run connectivity + write/read test")
 
-    p_list = subs.add_parser("namespaces", help="List all namespaces")
+    p_list = subs.add_parser("list", help="List memories with filtering")
+    p_list.add_argument("--type", help="Filter by type (fact, instruction, event, etc.)")
+    p_list.add_argument("--session", help="Filter by session ID")
+    p_list.add_argument("--limit", type=int, default=50, help="Max results (default 50)")
+
+    p_export = subs.add_parser("export", help="Export all memories to file")
+    p_export.add_argument("--format", choices=["json", "jsonl", "markdown"], default="json", help="Output format")
+    p_export.add_argument("--output", "-o", help="Output file path (stdout if omitted)")
+    p_export.add_argument("--type", help="Filter by type")
+    p_export.add_argument("--session", help="Filter by session ID")
+
+    p_ns = subs.add_parser("namespaces", help="List all namespaces")
 
     p_create = subs.add_parser("create-ns", help="Create a namespace")
     p_create.add_argument("name", help="Namespace name (≤32 chars)")
@@ -178,6 +302,10 @@ def register_cli(subparser) -> None:
             cmd_status(args)
         elif cmd == "test":
             cmd_test(args)
+        elif cmd == "list":
+            cmd_list(args)
+        elif cmd == "export":
+            cmd_export(args)
         elif cmd == "namespaces":
             cmd_namespaces(args)
         elif cmd == "create-ns":

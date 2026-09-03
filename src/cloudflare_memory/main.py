@@ -60,6 +60,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_scope(p_list)
     p_list.add_argument("--page", type=int, default=1)
     p_list.add_argument("--per-page", type=int, default=20)
+    p_list.add_argument("--type", default="", help="Filter by type (fact, instruction, event)")
+    p_list.add_argument("--session", default="", help="Filter by session ID")
+    p_list.add_argument("--limit", type=int, default=50, help="Max results (default 50)")
+
+    p_export = sub.add_parser("export", help="Export all memories to file (CLI-only)")
+    _add_scope(p_export)
+    p_export.add_argument("--format", choices=["json", "jsonl", "markdown"], default="json", help="Output format")
+    p_export.add_argument("--output", "-o", help="Output file path (stdout if omitted)")
+    p_export.add_argument("--type", default="", help="Filter by type")
+    p_export.add_argument("--session", default="", help="Filter by session ID")
 
     p_get = sub.add_parser("get", help="Get one memory by id (CLI-only)")
     _add_scope(p_get)
@@ -113,7 +123,7 @@ def main() -> None:
     import sys
     if len(sys.argv) > 1 and not sys.argv[1].startswith("-") and sys.argv[1] not in (
         "serve", "a2a", "test", "doctor", "card", "list", "get", "delete",
-        "ingest", "summary", "namespaces", "create-ns", "delete-ns",
+        "ingest", "summary", "namespaces", "create-ns", "delete-ns", "export",
     ):
         # Unknown subcommand — treat as recall query
         asyncio.run(_recall_fallback(" ".join(sys.argv[1:])))
@@ -149,6 +159,9 @@ def main() -> None:
 
     elif args.command == "list":
         asyncio.run(_cmd_list(args))
+
+    elif args.command == "export":
+        asyncio.run(_cmd_export(args))
 
     elif args.command == "get":
         asyncio.run(_cmd_get(args))
@@ -414,11 +427,82 @@ def _print_json(obj: Any) -> None:
 async def _cmd_list(args) -> None:
     client = _make_client(args.namespace, args.profile)
     async with client:
-        entries = await client.list_memories(args.page, args.per_page)
+        all_entries = []
+        page = args.page
+        while len(all_entries) < args.limit:
+            entries = await client.list_memories(page, min(args.per_page, args.limit - len(all_entries)))
+            if not entries:
+                break
+            for e in entries:
+                if args.type and e.type != args.type:
+                    continue
+                if args.session and e.session_id != args.session:
+                    continue
+                all_entries.append(e)
+                if len(all_entries) >= args.limit:
+                    break
+            page += 1
         _print_json([
-            {"id": e.id, "type": e.type, "summary": e.summary}
-            for e in entries
+            {"id": e.id, "type": e.type, "summary": e.summary, "session_id": e.session_id, "created_at": e.created_at}
+            for e in all_entries[:args.limit]
         ])
+
+
+async def _cmd_export(args) -> None:
+    client = _make_client(args.namespace, args.profile)
+    async with client:
+        all_memories = []
+        page = 1
+        while True:
+            entries = await client.list_memories(page=page, per_page=100)
+            if not entries:
+                break
+            for entry in entries:
+                if args.type and entry.type != args.type:
+                    continue
+                if args.session and entry.session_id != args.session:
+                    continue
+                full = await client.get_memory(entry.id)
+                all_memories.append(full)
+            page += 1
+
+        fmt = args.format
+        if fmt == "json":
+            data = [
+                {"id": m.id, "type": m.type, "summary": m.summary, "content": m.content,
+                 "session_id": m.session_id, "created_at": m.created_at, "updated_at": m.updated_at}
+                for m in all_memories
+            ]
+            out = json.dumps(data, indent=2, ensure_ascii=False)
+        elif fmt == "jsonl":
+            lines = [json.dumps({"id": m.id, "type": m.type, "summary": m.summary, "content": m.content,
+                                  "session_id": m.session_id, "created_at": m.created_at}, ensure_ascii=False)
+                     for m in all_memories]
+            out = "\n".join(lines)
+        elif fmt == "markdown":
+            ns = args.namespace or "hermes"
+            prof = args.profile or "default"
+            lines = [f"# Memory Export — {ns}/{prof}", f"\nExported: {len(all_memories)} memories\n"]
+            for m in all_memories:
+                lines.append(f"## [{m.type}] {m.summary}")
+                lines.append(f"- **ID**: `{m.id}`")
+                if m.session_id:
+                    lines.append(f"- **Session**: `{m.session_id}`")
+                if m.created_at:
+                    lines.append(f"- **Created**: {m.created_at}")
+                if m.content:
+                    lines.append(f"\n{m.content}\n")
+                lines.append("---\n")
+            out = "\n".join(lines)
+        else:
+            out = json.dumps([{"error": f"Unknown format: {fmt}"}], indent=2)
+
+        if args.output:
+            from pathlib import Path
+            Path(args.output).write_text(out, encoding="utf-8")
+            print(f"Exported {len(all_memories)} memories to {args.output} ({fmt})", file=sys.stderr)
+        else:
+            print(out)
 
 
 async def _cmd_get(args) -> None:

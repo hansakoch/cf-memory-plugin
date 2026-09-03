@@ -90,9 +90,13 @@ async def recall(query: str) -> str:
 
 # ── admin tools (--full only) ─────────────────────────────────────────
 
-async def list_memories(page: int = 1, per_page: int = 20) -> str:
-    """List memories."""
+async def list_memories(page: int = 1, per_page: int = 20, type: str = "", session_id: str = "") -> str:
+    """List memories. Optional filters: type (fact/instruction/event), session_id."""
     entries = await _get_client().list_memories(page, per_page)
+    if type:
+        entries = [e for e in entries if e.type == type]
+    if session_id:
+        entries = [e for e in entries if e.session_id == session_id]
     return _compact([_entry_dict(e) for e in entries])
 
 
